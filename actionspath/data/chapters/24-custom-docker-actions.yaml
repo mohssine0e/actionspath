@@ -1,0 +1,185 @@
+chapter:
+  number: 24
+  title: "Custom Docker Container Actions"
+  description: "Build custom actions using any programming language (Python, Go, Rust, Bash) packaged in Docker containers with Dockerfile and entrypoints."
+
+concepts:
+  - title: "Language-Agnostic Power with Docker Actions"
+    content: |
+      If your custom action requires Python libraries, Go utilities, or specific Linux CLI packages, rewriting it in JavaScript is painful. **Docker Container Actions** allow you to write actions in any language.
+
+      **The Shipping Container Analogy**
+
+      JavaScript actions are like high-speed passenger trains: fast and efficient, but they only travel on standard railroad tracks (Node.js). Docker actions are standardized intermodal shipping containers. You can load anything inside (Python, Rust, C++ binaries, custom system libraries), and any cargo crane on a Linux port can lift and run it without caring what is inside.
+
+      ```
+      ┌────────────────────────────────────────────────────────┐
+      │ CUSTOM ACTION REPOSITORY: acme/python-security-scanner │
+      │                                                        │
+      │  Dockerfile                                            │
+      │    FROM python:3.12-alpine                             │
+      │    RUN pip install bandit safety                       │
+      │    COPY entrypoint.sh /entrypoint.sh                   │
+      │    ENTRYPOINT ["/entrypoint.sh"]                       │
+      │                                                        │
+      │  action.yml                                            │
+      │    name: 'Python Scanner'                              │
+      │    runs:                                               │
+      │      using: 'docker'                                   │
+      │      image: 'Dockerfile'                               │
+      └────────────────────────────────────────────────────────┘
+      ```
+
+      **Key insight:** Docker container actions run inside their own isolated filesystem and environment, with the repository mounted at `/github/workspace`.
+    key_points:
+      - "Write custom actions in any programming language or shell"
+      - "Defined using 'runs.using: docker' in action.yml"
+      - "Isolates tool dependencies inside a custom Docker image"
+
+  - title: "Inputs, Arguments & The Entrypoint Script"
+    content: |
+      How does data pass from the workflow YAML into your containerized script?
+
+      **1. Arguments (`args:`):**
+      Passed directly as positional command-line arguments (`$1`, `$2`, etc.) to the `ENTRYPOINT`:
+      ```yaml
+      runs:
+        using: 'docker'
+        image: 'Dockerfile'
+        args:
+          - ${{ inputs.scan-target }}
+          - ${{ inputs.severity-level }}
+      ```
+
+      **2. Environment Variables (`INPUT_*`):**
+      The runner automatically converts all declared inputs into uppercase environment variables prefixed with `INPUT_`:
+      - Input `scan-target` becomes `$INPUT_SCAN_TARGET` inside the container.
+
+      **3. Writing Step Outputs:**
+      Just like in normal workflow steps, write outputs directly to the file at `"$GITHUB_OUTPUT"`:
+      ```bash
+      #!/bin/sh
+      echo "vulnerabilities_found=0" >> "$GITHUB_OUTPUT"
+      ```
+
+      **Key insight:** Read inputs either from positional arguments (`$1`) or the `$INPUT_<NAME>` environment variable.
+    key_points:
+      - "Inputs are exposed as $INPUT_<UPPERCASE_NAME> environment variables"
+      - "args: passes values as positional CLI parameters to the container entrypoint"
+      - "Write outputs to $GITHUB_OUTPUT inside the container"
+
+  - title: "Optimization: Dockerfile vs Pre-Built Images"
+    content: |
+      When configuring `action.yml`, you have two choices for `image:`:
+
+      **1. `image: 'Dockerfile'` (Build on the Fly):**
+      GitHub builds the Docker image from scratch on every workflow run.
+      - *Trade-off:* Slower startup. If building the image takes 60 seconds, every workflow job suffers a 60-second delay.
+
+      **2. `image: 'docker://ghcr.io/org/action:v1'` (Pre-Built Image):**
+      The runner pulls a pre-compiled image directly from a container registry.
+      - *Trade-off:* Blazing fast! Image layers download in 2–4 seconds.
+
+      **Important Limitation:** Docker container actions **only execute on Linux runners**. They cannot run on macOS or Windows runners.
+
+      **Key insight:** Pre-build and publish Docker actions to `ghcr.io` for production pipelines to save minutes of build time on every run.
+    key_points:
+      - "image: Dockerfile builds the container from scratch on each run"
+      - "image: docker://... pulls pre-built images from registries in seconds"
+      - "Docker actions are strictly limited to Linux runners"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Inspect Docker Container Environment"
+    instructions: |
+      **What we're doing:** Inspect the runner kernel to verify Linux container support.
+
+      **Why this matters:** Docker container actions require a Linux kernel environment.
+
+      **The command pattern:**
+      ```
+      uname -s
+      ```
+
+      Run this command:
+    command_hint: "uname -s"
+    validation:
+      type: "command_output"
+      command: "uname -s"
+      expected_contains: "Linux"
+    points: 10
+
+scenarios:
+  - id: "fix-docker-action-metadata"
+    title: "Configure Docker Runtime in action.yml"
+    description: |
+      A custom Python action has a `Dockerfile`, but `action.yml` is missing the `runs:` configuration.
+      Edit `action.yml` to specify:
+      ```yaml
+      runs:
+        using: 'docker'
+        image: 'Dockerfile'
+      ```
+    manifest: |
+      name: 'Python Analyzer'
+      description: 'Runs custom Python analysis'
+      inputs:
+        target:
+          description: 'Folder to scan'
+          required: true
+    hints:
+      - "Add 'runs:' at the root level of action.yml."
+      - "Set 'using: docker' and 'image: Dockerfile'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "switch-to-prebuilt-docker-image"
+    title: "Switch Docker Action to Pre-Built Image"
+    description: |
+      The pipeline is suffering from 45-second image build delays.
+      Update `action.yml` to replace `image: 'Dockerfile'` with pre-built image:
+      `image: 'docker://ghcr.io/acme-corp/analyzer:v1.0'`
+    manifest: |
+      name: 'Fast Analyzer'
+      runs:
+        using: 'docker'
+        image: 'Dockerfile'
+    hints:
+      - "Change 'image: Dockerfile' to 'image: docker://ghcr.io/acme-corp/analyzer:v1.0'."
+      - "Prefix the registry URL with 'docker://'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "On which operating system runners can Docker container actions execute?"
+      options:
+        - "Linux runners only"
+        - "Linux and macOS"
+        - "Linux and Windows"
+        - "All operating systems"
+      correct: "Linux runners only"
+      explanation: "GitHub Actions runner architecture only supports Docker container actions on Linux machines."
+      points: 10
+
+    - type: "true_false"
+      question: "In a Docker action, an input named 'target_dir' is available inside the container as the environment variable '$INPUT_TARGET_DIR'."
+      correct: true
+      explanation: "The runner automatically maps inputs to uppercase environment variables prefixed with INPUT_."
+      points: 10
+
+    - type: "multiple_choice"
+      question: "Why should production Docker actions reference 'docker://<registry>/<image>' instead of 'Dockerfile'?"
+      options:
+        - "Pre-built images eliminate the 30-90 second container build time on every run"
+        - "Pre-built images are free whereas Dockerfile builds cost money"
+        - "Dockerfile builds cannot access the internet"
+        - "Dockerfile syntax is deprecated"
+      correct: "Pre-built images eliminate the 30-90 second container build time on every run"
+      explanation: "Pulling a pre-compiled image takes seconds, whereas building from source on every run wastes significant runner time."
+      points: 10
