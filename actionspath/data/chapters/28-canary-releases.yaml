@@ -32,6 +32,32 @@ concepts:
   - "Limits the blast radius of production bugs"
   - "Monitors live telemetry (5xx error rates, p95 latency) during observation windows"
 
+  diagram:
+    type: state_flow
+    title: Canary Progressive Traffic Shift
+    before:
+      title: "Stage 1: Canary 10% Ingress (Testing Blast Radius)"
+      state:
+      - label: "Baseline Cluster (v1.0)"
+        traffic: "90% Traffic"
+        status: "Serving bulk production load safely"
+        color: "cyan"
+      - label: "Canary Pods (v1.1)"
+        traffic: "10% Traffic"
+        status: "Live telemetry & error-rate monitoring"
+        color: "yellow"
+    after:
+      title: "Stage 2: Promoted (Metric Gates Passed)"
+      state:
+      - label: "Previous Baseline (v1.0)"
+        traffic: "0% Traffic"
+        status: "Decommissioned or kept on warm standby"
+        color: "dim"
+      - label: "Promoted Baseline (v1.1)"
+        traffic: "100% Traffic"
+        status: "Healthy with 0.01% error budget"
+        color: "green"
+
 - title: "Progressive Traffic Shifting in Workflows"
   content: |
     A progressive delivery workflow orchestrates traffic increments with intermediate validation gates:

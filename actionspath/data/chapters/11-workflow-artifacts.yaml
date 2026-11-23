@@ -36,6 +36,26 @@ concepts:
   - "Artifacts persist files in GitHub cloud storage for 1 to 90 days"
   - "Artifacts allow downstream jobs to consume outputs built by upstream jobs"
 
+  diagram:
+    type: sequence
+    title: Cross-Job Artifact Lifecycle Flow
+    steps:
+    - step: 1
+      from: Job 1 (Build)
+      to: GitHub Storage
+      action: upload-artifact@v4
+      desc: Zips and uploads build outputs (dist/) to cloud artifact blob store
+    - step: 2
+      from: Job 1 Runner
+      to: Actions Engine
+      action: Runner Teardown
+      desc: VM is formatted and destroyed; local runner storage is wiped
+    - step: 3
+      from: Job 2 (Deploy)
+      to: GitHub Storage
+      action: download-artifact@v4
+      desc: "Downstream job (needs: build) downloads and extracts dist/ archive"
+
 - title: "Uploading Artifacts with `actions/upload-artifact@v4`"
   content: |
     Use `actions/upload-artifact@v4` to bundle and upload files from the current runner workspace into GitHub storage.

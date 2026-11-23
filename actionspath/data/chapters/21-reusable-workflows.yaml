@@ -44,23 +44,29 @@ concepts:
   - "Caller workflows reference called workflows via 'uses: owner/repo/path@ref'"
 
   diagram:
-    title: Caller vs Reusable (Called) Workflow Execution Model
-    diagram: "Caller Repository                               Central Security Org
-      Repository\n  ┌─────────────────────────────────────┐         ┌─────────────────────────────────────┐\n\
-      \  │ .github/workflows/production-ci.yml │         │ .github/workflows/reusable-build.yml│\n\
-      \  │                                     │         │                       \
-      \              │\n  │ jobs:                               │         │ on:  \
-      \                               │\n  │   call-build:                       │\
-      \         │   workflow_call:                    │\n  │     uses: org/templates/.github/...
-      ├────────▶│     inputs:                         │\n  │     with:           \
-      \                │         │       environment: {type: string}   │\n  │    \
-      \   environment: 'prod'           │         │     secrets:                 \
-      \       │\n  │     secrets: inherit                │         │       TOKEN:
-      {required: true}       │\n  │                                     │        \
-      \ │                                     │\n  │   next-job:                 \
-      \        │         │ jobs:                               │\n  │     needs: call-build\
-      \               │◀────────┤   enforce-standards: ...            │\n  └─────────────────────────────────────┘\
-      \         └─────────────────────────────────────┘"
+    type: sequence
+    title: Caller vs Reusable Workflow Execution Model
+    steps:
+    - step: 1
+      from: Caller Workflow
+      to: Central Org Repo
+      action: Reference Reusable Workflow
+      desc: "uses: org/templates/build.yml@v1 with inputs & secrets: inherit"
+    - step: 2
+      from: Central Org Repo
+      to: Actions Engine
+      action: Validate Schema & Permissions
+      desc: Engine parses workflow_call contract and binds caller secrets
+    - step: 3
+      from: Actions Engine
+      to: Reusable Job
+      action: Execute Standardized Jobs
+      desc: Runs compliance, build, and test steps inside isolated environment
+    - step: 4
+      from: Reusable Job
+      to: Caller Workflow
+      action: Return Workflow Outputs
+      desc: "Exports outputs (e.g. build_version) to downstream jobs (needs: call-build)"
 - title: "Inputs, Secrets & `secrets: inherit`"
   content: |
     Called workflows parameterize their logic with inputs and receive secrets securely.
