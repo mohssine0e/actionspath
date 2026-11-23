@@ -1,0 +1,135 @@
+chapter:
+  number: 3
+  title: "Fixing Broken Workflows"
+  description: "Hands-on debugging: resolve invalid YAML syntax, missing action versions, indentation errors, and bad environment variables."
+
+concepts:
+  - title: "Common Workflow Syntax Pitfalls"
+    content: |
+      YAML is human-readable, but notoriously sensitive to whitespace and structure:
+
+      1. **Spaces vs Tabs**: YAML strictly forbids tab characters (`\t`). Always use 2 spaces for indentation.
+      2. **Reserved Boolean Keys**: In YAML 1.1, unquoted `on`, `yes`, `no`, `true`, `false` are parsed as booleans. GitHub Actions triggers often use `on:`, which is valid in GitHub's parser, but values like `run: true` must be handled with care.
+      3. **Colon Whitespace**: A colon followed immediately by a character (like `key:value`) is treated as a string, not a key-value mapping! Always include a space: `key: value`.
+    key_points:
+      - "Never use tab characters in YAML; use 2 spaces"
+      - "Colons marking keys must be followed by a space"
+      - "List items start with a hyphen followed by a space (- run: ...)"
+
+  - title: "Action Version Pinning and Security"
+    content: |
+      When referencing external community actions with `uses`, you must specify a version reference:
+
+      ```yaml
+      # Branch reference (mutable - NOT recommended for production)
+      - uses: actions/checkout@main
+
+      # Major version tag (common and convenient)
+      - uses: actions/checkout@v4
+
+      # Full commit SHA (most secure, immutable)
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      ```
+
+      Pinning to a tag or SHA prevents sudden breaking changes when an action author publishes an update.
+    key_points:
+      - "The 'uses' keyword references reusable actions in the format owner/repo@ref"
+      - "Pinning to major tags (@v4) or full SHAs ensures repeatable builds"
+      - "Unpinned actions can cause unexpected build breaks and supply-chain vulnerabilities"
+
+  - title: "Static Analysis with actionlint"
+    content: |
+      Rather than pushing dozens of commits to GitHub just to find out a workflow has a typo, you can lint workflows locally using `actionlint`.
+
+      `actionlint` checks:
+      - GitHub Actions expression syntax (`${{ ... }}`)
+      - Missing or mistyped runner labels
+      - Action inputs and environment variables
+      - Deprecated syntax and permissions
+    key_points:
+      - "actionlint provides instant local verification for GitHub Actions workflows"
+      - "Catches syntax and expression errors before pushing to GitHub"
+      - "Integrates into pre-commit hooks and CI pipelines"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Verify Git Diff in Workspace"
+    instructions: |
+      **What we're doing:** Run `git diff` to view working tree changes.
+
+      **Why this matters:** When fixing broken workflows, checking your diff lets you verify exact edits before committing.
+
+      Run this command:
+    command_hint: "git diff"
+    validation:
+      type: "command_output"
+      command: "git diff"
+      expected_contains: ""
+    points: 10
+
+scenarios:
+  - id: "fix-step-definition"
+    title: "Fix Invalid Step Definition"
+    description: |
+      A workflow in `.github/workflows/ci.yml` is failing because a step does not specify either `run` or `uses`.
+      Update the second step of the `test` job to run the test script: `run: pytest`.
+    manifest: |
+      name: Test Suite
+      on: [push]
+      jobs:
+        test:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - name: Run Pytest
+    hints:
+      - "Every step in a job must execute either a shell command ('run') or an action ('uses')."
+      - "Add 'run: pytest' to the 'Run Pytest' step."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "fix-jobs-key"
+    title: "Fix Malformed Jobs Section"
+    description: |
+      A workflow has an empty or missing `jobs` block.
+      Fix `.github/workflows/ci.yml` by defining a `build` job with `runs-on: ubuntu-latest` and a step that runs `echo 'Build complete'`.
+    manifest: |
+      name: Build Project
+      on: [push]
+      jobs: {}
+    hints:
+      - "The 'jobs:' section cannot be empty. It must contain at least one job definition."
+      - "Define a job named 'build' with 'runs-on: ubuntu-latest' and steps."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "true_false"
+      question: "YAML workflow files allow the use of tab characters for indentation."
+      correct: false
+      points: 10
+
+    - type: "multiple_choice"
+      question: "Which of the following is the most secure method for pinning an external action version?"
+      options:
+        - "Full 40-character commit SHA"
+        - "Branch name (e.g. @main)"
+        - "No version specified"
+        - "Latest keyword (@latest)"
+      correct: "Full 40-character commit SHA"
+      points: 10
+
+    - type: "multiple_choice"
+      question: "Which open-source tool provides static analysis and linting for GitHub Actions workflow files?"
+      options:
+        - "actionlint"
+        - "yamllint"
+        - "kube-linter"
+        - "dockle"
+      correct: "actionlint"
+      points: 10

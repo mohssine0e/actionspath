@@ -1,0 +1,181 @@
+chapter:
+  number: 2
+  title: "Job Dependencies & Execution Flow"
+  description: "Control execution order using the 'needs' keyword, parallel vs sequential jobs, and condition checks."
+
+concepts:
+  - title: "Parallel vs. Sequential Execution"
+    content: |
+      By default, GitHub Actions runs all jobs in a workflow **concurrently in parallel** to save build time.
+
+      For example, if you define `build`, `lint`, and `test` jobs without specifying dependencies, GitHub will spin up three virtual machines and run all three at the same time.
+
+      ```
+      [lint] ───────────┐
+      [test] ───────────┼─► All start immediately
+      [build] ──────────┘
+      ```
+
+      However, you rarely want to deploy an application before the test job succeeds! You need a way to enforce sequential ordering.
+    key_points:
+      - "Jobs run in parallel by default to maximize speed"
+      - "Independent jobs do not wait for one another"
+      - "Sequencing is required when one job needs outputs or verification from another"
+
+  - title: "The `needs` Keyword"
+    content: |
+      The `needs` keyword defines dependencies between jobs, turning your pipeline into a **Directed Acyclic Graph (DAG)**.
+
+      **Single Dependency:**
+      ```yaml
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - run: npm run build
+
+        deploy:
+          needs: build
+          runs-on: ubuntu-latest
+          steps:
+            - run: npm run deploy
+      ```
+
+      **Multiple Dependencies:**
+      A job can wait on multiple upstream jobs:
+      ```yaml
+      jobs:
+        deploy:
+          needs: [build, test, security-scan]
+          runs-on: ubuntu-latest
+      ```
+
+      If any job in `needs` fails, dependent jobs are automatically skipped.
+    key_points:
+      - "The 'needs' keyword creates job execution dependencies"
+      - "Accepts a single job name or a YAML list of job names"
+      - "Dependent jobs are skipped automatically if an upstream dependency fails"
+
+  - title: "Status Check Functions and Conditionals (`if`)"
+    content: |
+      By default, dependent jobs only run if all upstream jobs succeed (`success()`).
+
+      You can customize this behavior using the `if` condition:
+      - `if: always()`: Runs even if dependencies failed or were cancelled.
+      - `if: failure()`: Runs only when at least one previous step or job failed (great for sending Slack/email failure alerts!).
+      - `if: success()`: Default behavior; runs only when upstream succeeded.
+
+      Example:
+      ```yaml
+      jobs:
+        notify-failure:
+          needs: [test, deploy]
+          if: failure()
+          runs-on: ubuntu-latest
+          steps:
+            - run: echo "Deployment failed! Alerting team."
+      ```
+    key_points:
+      - "The 'if' keyword evaluates boolean conditions before running a job or step"
+      - "status check functions: success(), failure(), always(), cancelled()"
+      - "Enables automated incident alerts and fallback procedures"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Inspect Git Commits"
+    instructions: |
+      **What we're doing:** Inspect the commit history in your workspace.
+
+      **Why this matters:** Each workflow run is tied to a specific Git commit SHA (`github.sha`).
+
+      Run this command:
+    command_hint: "git log -n 1 --oneline"
+    validation:
+      type: "command_output"
+      command: "git log -n 1 --oneline"
+      expected_contains: "Initial"
+    points: 10
+
+scenarios:
+  - id: "fix-circular-dependency"
+    title: "Resolve Circular Job Dependency"
+    description: |
+      The CI pipeline is rejected by GitHub because of a circular dependency error between `build` and `test`.
+      Inspect `.github/workflows/ci.yml`. Notice that `test` needs `build`, but `build` also specifies `needs: test`!
+      Remove the invalid `needs: test` from the `build` job so `build` runs first, followed by `test`.
+    manifest: |
+      name: CI Pipeline
+      on: [push]
+      jobs:
+        build:
+          needs: test
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - run: echo "Compiling binaries..."
+        test:
+          needs: build
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - run: echo "Running unit tests..."
+    hints:
+      - "Circular dependencies happen when two jobs wait on each other in an infinite loop."
+      - "Remove 'needs: test' from the 'build:' job."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "fix-undefined-dependency"
+    title: "Fix Unknown Job in needs"
+    description: |
+      A deploy job was configured to depend on `compile-app`, but the actual job is named `build`.
+      Update `.github/workflows/ci.yml` so `deploy` has `needs: build`.
+    manifest: |
+      name: Build and Deploy
+      on: [push]
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - run: echo "Building container..."
+        deploy:
+          needs: compile-app
+          runs-on: ubuntu-latest
+          steps:
+            - run: echo "Deploying container..."
+    hints:
+      - "Every job name listed in 'needs' must match an existing job key in the 'jobs' section."
+      - "Change 'needs: compile-app' to 'needs: build'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "Which keyword creates an execution dependency between GitHub Actions jobs?"
+      options:
+        - "needs"
+        - "depends_on"
+        - "requires"
+        - "after"
+      correct: "needs"
+      points: 10
+
+    - type: "true_false"
+      question: "A job can depend on multiple jobs using a list, e.g., 'needs: [test, lint]'."
+      correct: true
+      points: 10
+
+    - type: "multiple_choice"
+      question: "Which status check condition allows a notification job to execute only when an earlier job failed?"
+      options:
+        - "if: failure()"
+        - "if: always()"
+        - "if: error()"
+        - "if: unsuccessful()"
+      correct: "if: failure()"
+      points: 10

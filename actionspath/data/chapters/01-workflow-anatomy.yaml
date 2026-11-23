@@ -1,0 +1,191 @@
+chapter:
+  number: 1
+  title: "Workflow Anatomy"
+  description: "Master the structure of GitHub Actions workflows: triggers, jobs, runners, and steps."
+
+concepts:
+  - title: "What is GitHub Actions?"
+    content: |
+      **Continuous Integration and Continuous Delivery (CI/CD)** automates software building, testing, and deployment.
+
+      GitHub Actions is built directly into GitHub. When events occur in your repository (like opening a pull request or pushing a commit), GitHub runs automated workflows.
+
+      **Real-life analogy:**
+      Think of GitHub Actions like a robotic factory line. When a new part arrives (a `push` event), sensors trigger robots that inspect, test, and package the product automatically.
+
+      **Where workflows live:**
+      Every GitHub Actions workflow file is written in YAML and stored in your repository at:
+      ```
+      .github/workflows/<workflow-name>.yml
+      ```
+
+      **Key insight:** Workflows are version-controlled alongside your application code.
+    key_points:
+      - "GitHub Actions automates building, testing, and deploying code"
+      - "Workflow files must live inside .github/workflows/"
+      - "Workflows are triggered by events and execute in isolated virtual machines"
+
+  - title: "Workflow Triggers (`on`)"
+    content: |
+      The `on` keyword defines **when** a workflow executes. Without a trigger, a workflow will never run.
+
+      You can listen to one event or multiple events:
+      ```yaml
+      name: CI Pipeline
+
+      # Single event
+      on: push
+
+      # Multiple events
+      on: [push, pull_request]
+
+      # Advanced trigger with branch filter
+      on:
+        push:
+          branches: [main, release/*]
+        pull_request:
+          branches: [main]
+      ```
+
+      **Common Triggers:**
+      - `push`: Triggered when code is pushed to a branch or tag.
+      - `pull_request`: Triggered when a PR is opened, synchronized, or reopened.
+      - `workflow_dispatch`: Adds a manual 'Run workflow' button in GitHub's web UI.
+      - `schedule`: Runs on a cron schedule (e.g. nightly builds).
+    key_points:
+      - "The 'on' field specifies event triggers"
+      - "Supports arrays of events or detailed filters with branches"
+      - "'workflow_dispatch' enables manual triggering"
+
+  - title: "Jobs, Runners, and Steps"
+    content: |
+      A workflow is broken into three hierarchical levels:
+
+      ```
+      Workflow (.github/workflows/ci.yml)
+        └── Jobs (e.g. test, lint, build)
+              └── Runner (e.g. runs-on: ubuntu-latest)
+              └── Steps
+                    ├── uses: actions/checkout@v4 (Pre-built Action)
+                    └── run: npm test (Shell Command)
+      ```
+
+      1. **Jobs**: Units of execution. By default, all jobs run in **parallel**.
+      2. **Runners (`runs-on`)**: The operating system VM or container executing the job (e.g. `ubuntu-latest`, `windows-latest`, `macos-latest`).
+      3. **Steps**: Sequential tasks inside a job. A step can execute a shell command (`run`) or call a community action (`uses`).
+    key_points:
+      - "Jobs run in parallel unless dependencies are configured"
+      - "Every job requires a runner operating system via runs-on"
+      - "Steps run sequentially and execute shell commands or actions"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Verify Git Repository Status"
+    instructions: |
+      **What we're doing:** Inspect the current state of your local Git practice workspace.
+
+      **Why this matters:** In GitHub Actions, workflows run in the context of a Git checkout. Checking `git status` helps verify your workspace and branch are clean.
+
+      Run this command:
+    command_hint: "git status"
+    validation:
+      type: "command_output"
+      command: "git status"
+      expected_contains: "On branch"
+    points: 10
+
+  - id: "cmd-02"
+    title: "Check Workflow Directory Structure"
+    instructions: |
+      **What we're doing:** Verify the `.github/workflows` directory exists in the workspace.
+
+      **Why this matters:** GitHub only recognizes workflow files located inside `.github/workflows/`. Files placed anywhere else are ignored.
+
+      Run this command:
+    command_hint: "ls -la .github/workflows"
+    validation:
+      type: "command_output"
+      command: "ls -la .github/workflows"
+      expected_contains: "workflows"
+    points: 10
+
+scenarios:
+  - id: "fix-missing-trigger"
+    title: "Fix Missing Workflow Trigger"
+    description: |
+      A teammate added a workflow file, but GitHub Actions never triggers when commits are pushed.
+      Inspect `.github/workflows/ci.yml` and add the required `on: [push]` trigger so the pipeline activates on push events.
+    manifest: |
+      name: Build and Test
+      jobs:
+        test:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - name: Run unit test
+              run: echo "Tests passed!"
+    hints:
+      - "Workflows must declare an event trigger using the 'on' keyword."
+      - "Add 'on: [push]' right below the 'name' field."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "fix-missing-runner"
+    title: "Fix Missing Job Runner"
+    description: |
+      A workflow is failing validation because a job does not specify an operating system runner.
+      Update `.github/workflows/ci.yml` so the `test` job specifies `runs-on: ubuntu-latest`.
+    manifest: |
+      name: Lint and Check
+      on: [push, pull_request]
+      jobs:
+        lint:
+          steps:
+            - uses: actions/checkout@v4
+            - run: echo "Linting code..."
+    hints:
+      - "Every job must define a runner environment."
+      - "Add 'runs-on: ubuntu-latest' under the 'lint:' job key before 'steps:'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "In which directory must GitHub Actions workflow YAML files be stored?"
+      options:
+        - ".github/workflows/"
+        - ".github/actions/"
+        - ".ci/pipelines/"
+        - "workflows/"
+      correct: ".github/workflows/"
+      points: 10
+
+    - type: "multiple_choice"
+      question: "Which top-level keyword specifies what event causes a workflow to run?"
+      options:
+        - "on"
+        - "trigger"
+        - "events"
+        - "when"
+      correct: "on"
+      points: 10
+
+    - type: "true_false"
+      question: "By default, multiple jobs defined in the same workflow execute sequentially one after another."
+      correct: false
+      points: 10
+
+    - type: "multiple_choice"
+      question: "Which keyword defines the operating system virtual machine that executes a job?"
+      options:
+        - "runs-on"
+        - "os"
+        - "platform"
+        - "runner"
+      correct: "runs-on"
+      points: 10

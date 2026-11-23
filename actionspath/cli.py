@@ -1881,12 +1881,11 @@ def browse_chapters():
             input("\nPress Enter...")
             return
 
-        console.print("[info]Browse Chapters by CKAD Module[/info]\n")
+        console.print("[info]Browse Chapters by Module[/info]\n")
 
         # Group chapters by module
         for module in modules:
             module_name = module.get("name", "Unknown")
-            ckad_weight = module.get("ckad_weight", 0)
             module_chapters = module.get("chapters", [])
 
             # Calculate module completion
@@ -1897,13 +1896,14 @@ def browse_chapters():
                     if section == "completed":
                         completed_count += 1
 
-            total_in_module = len([c for c in module_chapters if c in chapters])
+            available_in_module = [c for c in module_chapters if c in chapters]
+            if not available_in_module:
+                continue
 
-            # Module header with CKAD percentage
-            if ckad_weight > 0:
-                console.print(f"[chapter]{module_name}[/chapter] [hint]({ckad_weight}% of CKAD)[/hint]")
-            else:
-                console.print(f"[chapter]{module_name}[/chapter] [hint](Foundation)[/hint]")
+            total_in_module = len(available_in_module)
+
+            # Module header
+            console.print(f"[chapter]{module_name}[/chapter]")
 
             if total_in_module > 0:
                 console.print(f"  [hint]{completed_count}/{total_in_module} completed[/hint]")
