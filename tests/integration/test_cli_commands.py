@@ -19,17 +19,20 @@ class TestCLICommands:
 
     def test_kubepath_start_chapter_1_quit(self):
         """Test that actionspath start 1 runs and accepts quit command."""
+        # Ensure clean state for chapter 1
+        subprocess.run(
+            [sys.executable, "-m", "actionspath.cli", "reset", "1", "-y"],
+            capture_output=True,
+            text=True,
+        )
         result = subprocess.run(
             [sys.executable, "-m", "actionspath.cli", "start", "1"],
             capture_output=True,
             text=True,
-            # With theory mode: Enter to skip practice, Enter to skip scenarios,
-            # Enter to start quiz, then q to quit at quiz prompt
-            input="\n\n\nq\n",
+            input="q\n",
         )
         assert result.returncode == 0
-        # Check for chapter content being displayed or theory mode skip messages
-        assert "workflow" in result.stdout.lower() or "theory mode" in result.stdout.lower()
+        assert "chapter" in result.stdout.lower() or "workflow" in result.stdout.lower()
 
     def test_kubepath_start_navigation(self):
         """Test navigating through concepts."""

@@ -1,6 +1,8 @@
 """CLI application for ActionsPath."""
 
 import typer
+from rich.panel import Panel
+from rich.text import Text
 
 from actionspath.console import get_console, print_banner, clear_screen
 from actionspath.content import (
@@ -374,6 +376,85 @@ def prompt_continue_session(session: dict) -> bool:
 
     user_input = get_user_input()
     return user_input == "y"
+
+
+def prompt_chapter_resume_or_restart(chapter_num: int, saved_section: str, console=None) -> str:
+    """Prompt user when starting a chapter with saved progress.
+
+    Returns:
+        "resume" to continue at saved_section
+        "restart" to clear progress and start at "concepts"
+        "menu" to select a section
+        "quit" to exit
+    """
+    if console is None:
+        console = get_console()
+
+    section_names = {
+        "concepts": "Concepts & Architecture",
+        "practice": "Command Practice",
+        "scenarios": "Debugging Scenarios",
+        "quiz": "Active Recall Quiz",
+        "completed": "Chapter Completed",
+    }
+    pretty_section = section_names.get(saved_section, saved_section.title())
+
+    panel = Panel(
+        Text.assemble(
+            ("Saved progress found at: ", "dim"),
+            (pretty_section, "bold yellow"),
+            ("\n\n", ""),
+            ("  [Enter] ", "bold cyan"), ("Resume where you left off\n", ""),
+            ("  [r]     ", "bold cyan"), ("Restart chapter from the beginning (Concept 1)\n", ""),
+            ("  [m]     ", "bold cyan"), ("Jump to a specific section\n", ""),
+            ("  [b]     ", "bold cyan"), ("Back / Cancel", "dim"),
+        ),
+        title=f"[bold cyan]Chapter {chapter_num} Progress[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 2),
+    )
+    console.print(panel)
+
+    try:
+        raw_choice = input("> ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return "quit"
+
+    if raw_choice in ("r", "restart", "reset"):
+        return "restart"
+    elif raw_choice in ("m", "menu", "select"):
+        return "menu"
+    elif raw_choice in ("b", "back", "q", "quit"):
+        return "quit"
+    return "resume"
+
+
+def prompt_section_select(console=None) -> str:
+    """Prompt user to select a chapter section."""
+    if console is None:
+        console = get_console()
+
+    panel = Panel(
+        Text.assemble(
+            ("Select section to launch:\n\n", "dim"),
+            ("  [1] ", "bold cyan"), ("Concepts & Architecture\n", ""),
+            ("  [2] ", "bold cyan"), ("Command Practice\n", ""),
+            ("  [3] ", "bold cyan"), ("Debugging Scenarios\n", ""),
+            ("  [4] ", "bold cyan"), ("Active Recall Quiz\n", ""),
+            ("  [b] ", "bold cyan"), ("Back to Concepts", "dim"),
+        ),
+        title="[bold cyan]Chapter Sections[/bold cyan]",
+        border_style="cyan",
+        padding=(1, 2),
+    )
+    console.print(panel)
+    try:
+        choice = input("> ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        return "concepts"
+
+    mapping = {"1": "concepts", "2": "practice", "3": "scenarios", "4": "quiz"}
+    return mapping.get(choice, "concepts")
 
 
 def check_environment_interactive() -> bool:
@@ -1261,8 +1342,6 @@ def interactive_quiz(
     saved_state = load_quiz_state(chapter_num)
     if saved_state:
         engine.restore_state(saved_state)
-        console.print("[info]Resuming quiz from where you left off.[/info]")
-        input("\nPress Enter to continue...")
 
     # Prepare questions (80% current + 20% error bank)
     engine.prepare_questions(error_bank_percent=20)
@@ -1483,12 +1562,25 @@ def run_chapter(chapter_num: int, start_section: str | None = None):
 
     # Determine starting section - check active session first
     if not start_section:
-        # Check active session (tracks where user actually is, e.g., mid-quiz)
         session = get_active_session()
         if session and session.get("chapter") == chapter_num:
-            start_section = session.get("section")
+            saved_sec = session.get("section")
         else:
-            start_section = get_chapter_section(chapter_num)
+            saved_sec = get_chapter_section(chapter_num)
+
+        if saved_sec and saved_sec != "concepts":
+            choice = prompt_chapter_resume_or_restart(chapter_num, saved_sec, console)
+            if choice == "restart":
+                clear_progress(chapter_num)
+                start_section = "concepts"
+            elif choice == "menu":
+                start_section = prompt_section_select(console)
+            elif choice == "quit":
+                return
+            else:
+                start_section = saved_sec
+        else:
+            start_section = saved_sec or "concepts"
     section = start_section
     start_from_last = False
     chapter_meta = chapter_data["chapter"]
