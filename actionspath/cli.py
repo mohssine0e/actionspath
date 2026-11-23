@@ -387,6 +387,7 @@ def prompt_chapter_resume_or_restart(chapter_num: int, saved_section: str, conso
         "menu" to select a section
         "quit" to exit
     """
+    clear_screen()
     if console is None:
         console = get_console()
 
@@ -2172,6 +2173,7 @@ def start(
     reset: bool = typer.Option(False, "--reset", "-r", help="Reset progress"),
 ):
     """Start learning a specific chapter (power user command)."""
+    clear_screen()
     if reset:
         clear_progress(chapter)
         run_chapter(chapter, "concepts")  # Explicit fresh start

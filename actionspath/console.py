@@ -56,18 +56,25 @@ def get_console() -> Console:
 
 
 def clear_screen() -> None:
-    """Clear the screen, respecting no-clear mode."""
-    console = get_console()
+    """Clear the screen and terminal scrollback buffer, respecting no-clear mode."""
     no_clear = (
         os.environ.get("ACTIONSPATH_NO_CLEAR", "0") == "1"
         or os.environ.get("KUBEPATH_NO_CLEAR", "0") == "1"
     )
 
+    console = get_console()
     if no_clear:
         # Print separator instead of clearing - allows content to accumulate
         console.print("\n" + "=" * 60 + "\n")
     else:
         console.clear()
+        import sys
+        if sys.stdout and hasattr(sys.stdout, "isatty") and sys.stdout.isatty():
+            # \033[3J: wipes terminal scrollback buffer
+            # \033[H: moves cursor to top-left
+            # \033[2J: clears viewport
+            sys.stdout.write("\033[3J\033[H\033[2J")
+            sys.stdout.flush()
 
 
 def print_banner() -> None:
