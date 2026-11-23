@@ -1,0 +1,210 @@
+chapter:
+  number: 9
+  title: "Service Containers: Databases in CI"
+  description: "Spin up background databases and cache servers (Postgres, Redis, MongoDB), configure healthchecks, network ports, and credentials."
+
+concepts:
+  - title: "What are Service Containers?"
+    content: |
+      Integration and end-to-end tests require live services like databases, message queues, and cache stores. **Service Containers** host these dependencies in background Docker containers during a job.
+
+      **The Restaurant Kitchen Analogy**
+
+      Think of your job steps as the dining room waiters taking orders and testing customer satisfaction. The waiters cannot cook food—they need a fully functioning kitchen (the database service) humming in the background before the restaurant opens.
+
+      ```
+      ┌────────────────────────────────────────────────────────┐
+      │ HOST RUNNER (ubuntu-latest)                            │
+      │                                                        │
+      │  Job Steps (npm test / pytest)                         │
+      │   │                                                    │
+      │   └──► Connects to: localhost:5432 or localhost:6379   │
+      │             ▲                     ▲                    │
+      │             │                     │                    │
+      │  ┌──────────┴────────┐   ┌────────┴────────┐           │
+      │  │ Service: postgres │   │ Service: redis  │           │
+      │  │ (port 5432:5432)  │   │ (port 6379:6379)│           │
+      │  └───────────────────┘   └─────────────────┘           │
+      └────────────────────────────────────────────────────────┘
+      ```
+
+      **Networking Rules:**
+      - **Running on the host runner:** Access services via `localhost:<port>`. You must explicitly map `ports: [5432:5432]`.
+      - **Running inside a job container:** Access services using their service label (e.g. `postgres:5432`) across the shared Docker bridge network.
+
+      **Key insight:** Service containers start before any job step runs and automatically terminate when the job finishes.
+    key_points:
+      - "Service containers run background services like PostgreSQL, Redis, or MySQL"
+      - "On host runners, access services via localhost with explicit port mappings"
+      - "Inside job containers, access services using the service name as the hostname"
+
+  - title: "Service Configuration & Credentials"
+    content: |
+      Databases require environment variables for root passwords, initial databases, and user privileges.
+
+      **Defining a PostgreSQL Service:**
+      ```yaml
+      jobs:
+        integration-test:
+          runs-on: ubuntu-latest
+          services:
+            postgres:
+              image: postgres:16-alpine
+              env:
+                POSTGRES_USER: test_user
+                POSTGRES_PASSWORD: test_password
+                POSTGRES_DB: app_test
+              ports:
+                - 5432:5432
+          steps:
+            - uses: actions/checkout@v4
+            - name: Run DB Tests
+              env:
+                DATABASE_URL: postgresql://test_user:test_password@localhost:5432/app_test
+              run: npm test
+      ```
+
+      **Key insight:** Use the `env:` block of the service to pass container initialization parameters, and mirror those credentials in your step's connection string.
+    key_points:
+      - "Specify the container image and required configuration environment variables"
+      - "Expose host ports using '- <host_port>:<container_port>'"
+      - "Pass connection strings to test steps using matching credentials and localhost"
+
+  - title: "Health Checks & Startup Readiness"
+    content: |
+      Containers start asynchronously. If your test step runs before Postgres finishes creating tables, tests fail with connection errors!
+
+      **The Health Check Safeguard:**
+      GitHub Actions delays starting job steps until all service container health checks report healthy.
+
+      ```yaml
+      services:
+        postgres:
+          image: postgres:16-alpine
+          env:
+            POSTGRES_PASSWORD: secret
+          ports:
+            - 5432:5432
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
+      ```
+
+      **Health Check Parameters:**
+      - `--health-cmd`: The command executed inside the container to test readiness.
+      - `--health-interval`: Delay between checks (e.g. `10s`).
+      - `--health-timeout`: Maximum duration before a single probe times out.
+      - `--health-retries`: Number of consecutive failures before failing the job.
+
+      **Key insight:** Always provide `--health-cmd` for databases to eliminate startup race conditions in CI.
+    key_points:
+      - "Services boot asynchronously and may not be ready when step 1 begins"
+      - "Use 'options: --health-cmd ...' to configure readiness checks"
+      - "GitHub Actions waits for healthy status before starting job steps"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Check Port Listening Pattern"
+    instructions: |
+      **What we're doing:** Inspect the standard localhost IP pattern used to reach service containers.
+
+      **Why this matters:** On host runners, service containers bind their mapped ports to 127.0.0.1 (localhost).
+
+      **The command pattern:**
+      ```
+      echo "Connecting to localhost:5432"
+      ```
+
+      Run this command:
+    command_hint: "echo 'Connecting to localhost:5432'"
+    validation:
+      type: "command_output"
+      command: "echo 'Connecting to localhost:5432'"
+      expected_contains: "localhost:5432"
+    points: 10
+
+scenarios:
+  - id: "fix-missing-service-port"
+    title: "Expose Service Port to Host Runner"
+    description: |
+      The workflow tests connect to Redis at `localhost:6379`, but the `redis` service forgot to expose and map the port!
+      Edit `.github/workflows/ci.yml` and add `ports: ['6379:6379']` under the `redis` service.
+    manifest: |
+      name: Cache Test
+      on: [push]
+      jobs:
+        test:
+          runs-on: ubuntu-latest
+          services:
+            redis:
+              image: redis:7-alpine
+          steps:
+            - run: echo "Pinging redis at localhost:6379"
+    hints:
+      - "Host runners require explicit port mapping under the service definition."
+      - "Add 'ports:' with '- 6379:6379' under 'redis:'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "add-postgres-healthcheck"
+    title: "Add Health Check to Postgres Service"
+    description: |
+      Database tests intermittently fail because the database is still initializing when the test step starts.
+      Update `.github/workflows/ci.yml` to add health check options to the `postgres` service:
+      `options: >- --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5`
+    manifest: |
+      name: Database Integration
+      on: [push]
+      jobs:
+        db-test:
+          runs-on: ubuntu-latest
+          services:
+            postgres:
+              image: postgres:16-alpine
+              env:
+                POSTGRES_PASSWORD: test
+              ports:
+                - 5432:5432
+          steps:
+            - run: echo "Running DB migrations..."
+    hints:
+      - "Add the 'options:' key under the 'postgres:' service."
+      - "Configure '--health-cmd pg_isready' to ensure readiness before steps start."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "When running a job directly on an ubuntu-latest host runner, how do you connect to a service container?"
+      options:
+        - "Via localhost:<mapped_port>"
+        - "Via the service name as hostname (e.g. postgres:5432)"
+        - "Via 0.0.0.0:80"
+        - "Via host.docker.internal"
+      correct: "Via localhost:<mapped_port>"
+      explanation: "On host runners, service containers publish their mapped ports to the runner's localhost."
+      points: 10
+
+    - type: "true_false"
+      question: "GitHub Actions steps start immediately without waiting for service health checks to report healthy."
+      correct: false
+      explanation: "When health checks are specified, GitHub Actions delays step execution until the health check passes."
+      points: 10
+
+    - type: "multiple_choice"
+      question: "Which option flag sets the command executed inside a container to verify its readiness?"
+      options:
+        - "--health-cmd"
+        - "--readiness-probe"
+        - "--check-status"
+        - "--ping-interval"
+      correct: "--health-cmd"
+      explanation: "Docker's --health-cmd flag defines the shell command tested periodically by the daemon."
+      points: 10

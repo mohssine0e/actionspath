@@ -1,0 +1,205 @@
+chapter:
+  number: 8
+  title: "Containerized Jobs & Docker Steps"
+  description: "Run workflow jobs inside custom Docker containers, configure volumes, image credentials, and containerized actions."
+
+concepts:
+  - title: "Job-Level Containers"
+    content: |
+      Installing toolchains on the host runner can take minutes. With **Job-Level Containers**, you execute all steps directly inside a pre-built Docker image.
+
+      **The Hazmat Cleanroom Analogy**
+
+      Instead of setting up equipment on the open factory floor (the host runner) and worrying about ambient dust or missing tools, you step inside a self-contained cleanroom trailer equipped with all required instruments.
+
+      ```
+      ┌────────────────────────────────────────────────────────┐
+      │ HOST RUNNER (ubuntu-latest)                            │
+      │  ┌──────────────────────────────────────────────────┐  │
+      │  │ DOCKER CONTAINER (image: node:20-bookworm)       │  │
+      │  │                                                  │  │
+      │  │  Working Directory: /github/workspace            │  │
+      │  │  - Step 1: uses actions/checkout@v4              │  │
+      │  │  - Step 2: run: npm test                         │  │
+      │  │                                                  │  │
+      │  └──────────────────────────────────────────────────┘  │
+      └────────────────────────────────────────────────────────┘
+      ```
+
+      **Syntax:**
+      ```yaml
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          container:
+            image: node:20-bookworm
+          steps:
+            - uses: actions/checkout@v4
+            - run: node -v && npm test
+      ```
+
+      **Critical Constraint:** Job-level containers are **only supported on Linux runners** (`runs-on: ubuntu-*` or Linux self-hosted). They do not run on macOS or Windows runners.
+
+      **Key insight:** The runner automatically mounts the workspace into `/github/workspace` inside the container so your source code is instantly available.
+    key_points:
+      - "The 'container:' key runs all steps inside the specified Docker image"
+      - "Job containers only run on Linux runners, not macOS or Windows"
+      - "The repository workspace is automatically mounted into /github/workspace"
+
+  - title: "Container Options and Registry Credentials"
+    content: |
+      When pulling from private registries or needing custom Docker flags, define full container properties.
+
+      **Private Registry Authentication:**
+      Use the `credentials:` block to authenticate against registries like GitHub Container Registry (`ghcr.io`) or Docker Hub:
+
+      ```yaml
+      container:
+        image: ghcr.io/my-org/custom-toolchain:v1.2
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          NODE_ENV: test
+        options: --cpus 2 --user 1000
+      ```
+
+      **Common `options:` flags:**
+      - `--user 1000:1000`: Run as a non-root user to match permissions.
+      - `--privileged`: Grant extended container capabilities (use with caution).
+      - `-v /host/path:/container/path`: Mount custom runner directories.
+
+      **Key insight:** Use the `credentials:` block to keep authentication decoupled from step commands and securely pull internal company base images.
+    key_points:
+      - "Provide credentials for private registries with username and password keys"
+      - "Use 'options:' to pass CLI flags like --user, --privileged, or volume mounts"
+      - "The 'env:' map sets initial environment variables inside the container"
+
+  - title: "Docker Steps vs Containerized Jobs"
+    content: |
+      You don't always need an entire job inside a container. Sometimes you only need a single tool for one step.
+
+      **Comparing Approaches:**
+      1. **Whole-Job Container (`container:`):** Best when every step uses the same runtime (e.g. all steps require Rust or Go).
+      2. **Docker Action Step (`uses: docker://...`):** Best for a one-off utility step on the host runner.
+      3. **Direct CLI (`docker run ...`):** Best when you need full control over Docker daemon commands or multi-container orchestrations.
+
+      ```yaml
+      steps:
+        - uses: actions/checkout@v4
+
+        # Run a single one-off step inside an Alpine container
+        - name: Run linter in alpine
+          uses: docker://alpine:3.19
+          with:
+            args: echo "Running isolated alpine command"
+      ```
+
+      **Key insight:** Use `container:` for homogeneous build environments and `docker://` for lightweight isolated utility tasks.
+    key_points:
+      - "Use 'container:' for full jobs that share a toolchain"
+      - "Use 'uses: docker://<image>' to run a single step in a container"
+      - "Direct 'docker run' commands work on any runner with Docker pre-installed"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Inspect Current Working Directory"
+    instructions: |
+      **What we're doing:** Inspect the current working directory path.
+
+      **Why this matters:** Inside GitHub Actions job containers, the runner mounts your workspace at `/github/workspace`.
+
+      **The command pattern:**
+      ```
+      pwd
+      ```
+
+      Run this command:
+    command_hint: "pwd"
+    validation:
+      type: "command_output"
+      command: "pwd"
+      expected_contains: "/"
+    points: 10
+
+scenarios:
+  - id: "fix-container-os-compatibility"
+    title: "Fix Container on Incompatible macOS Runner"
+    description: |
+      A workflow configured a job container on `macos-latest`. GitHub Actions fails immediately because job containers are only supported on Linux!
+      Edit `.github/workflows/ci.yml` and change `runs-on: macos-latest` to `runs-on: ubuntu-latest`.
+    manifest: |
+      name: Container Suite
+      on: [push]
+      jobs:
+        test:
+          runs-on: macos-latest
+          container:
+            image: python:3.12-slim
+          steps:
+            - run: python -c "print('Ready')"
+    hints:
+      - "Job containers only run on Linux environments."
+      - "Change 'runs-on: macos-latest' to 'runs-on: ubuntu-latest'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "add-container-registry-credentials"
+    title: "Configure Private Container Credentials"
+    description: |
+      The pipeline is pulling a private corporate image from `ghcr.io`, but is missing the `credentials:` block.
+      Update `.github/workflows/ci.yml` under `container:` to provide:
+      ```yaml
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+      ```
+    manifest: |
+      name: Enterprise Build
+      on: [push]
+      jobs:
+        secure-build:
+          runs-on: ubuntu-latest
+          container:
+            image: ghcr.io/acme-corp/toolchain:v2
+          steps:
+            - run: echo "Toolchain loaded"
+    hints:
+      - "Add 'credentials:' indented under the 'container:' dictionary."
+      - "Supply 'username: ${{ github.actor }}' and 'password: ${{ secrets.GITHUB_TOKEN }}'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "Which operating system runners support job-level 'container:' execution in GitHub Actions?"
+      options:
+        - "Linux only (e.g. ubuntu-latest)"
+        - "macOS and Linux"
+        - "Windows and Linux"
+        - "All operating systems"
+      correct: "Linux only (e.g. ubuntu-latest)"
+      explanation: "GitHub Actions runner containerization relies on Docker engine integration available only on Linux runners."
+      points: 10
+
+    - type: "true_false"
+      question: "Inside a job container, GitHub Actions automatically mounts the checked-out repository to /github/workspace."
+      correct: true
+      explanation: "The runner mounts the host repository workspace into /github/workspace inside the container."
+      points: 10
+
+    - type: "multiple_choice"
+      question: "How do you run a single step in a container without placing the entire job in a container?"
+      options:
+        - "uses: docker://<image-name>"
+        - "container: <image-name>"
+        - "strategy: docker: <image-name>"
+        - "runs-on: docker://<image-name>"
+      correct: "uses: docker://<image-name>"
+      explanation: "The 'uses: docker://<image>' syntax executes an individual action step inside a container on the host runner."
+      points: 10

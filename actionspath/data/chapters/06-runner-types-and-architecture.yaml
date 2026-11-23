@@ -1,0 +1,189 @@
+chapter:
+  number: 6
+  title: "Runner Architecture & Self-Hosted Runners"
+  description: "Understand GitHub-hosted vs self-hosted runners, runner operating systems, labels, and ephemeral runner security."
+
+concepts:
+  - title: "GitHub-Hosted vs Self-Hosted Runners"
+    content: |
+      Every workflow job needs a machine to execute its steps. GitHub Actions splits execution into two runner models.
+
+      **The Rental Car vs Fleet Ownership Analogy**
+
+      - **GitHub-hosted runners:** Like renting a car from an airport. You pick it up, it's clean, you drive it, and when you return it, it gets crushed and recycled. No leftovers from previous drivers.
+      - **Self-hosted runners:** Like maintaining your company's private fleet. You pay for gas and maintenance, install custom engines (GPUs/ARM), and drive inside your private gated garage (VPC), but you must clean up after yourself.
+
+      ```
+      ┌────────────────────────────────────────────────────────┐
+      │ GITHUB-HOSTED (Managed Ephemeral VMs)                 │
+      │  - Fresh Azure/AWS VM per job                          │
+      │  - Completely isolated; wiped immediately after run    │
+      │  - Pre-installed with 50+ CLI tools & SDKs             │
+      │  - Public IP; cannot access private corporate VPCs     │
+      └────────────────────────────────────────────────────────┘
+                                 vs
+      ┌────────────────────────────────────────────────────────┐
+      │ SELF-HOSTED (Your Infrastructure / Cloud VMs)          │
+      │  - Bare metal, AWS EC2, GCP Compute, or Kubernetes Pod │
+      │  - Access to private databases, internal VPNs & VPCs   │
+      │  - Custom hardware: GPUs, custom ARM cores, 128GB RAM  │
+      │  - DANGER: Never run on public repos (fork PR exploit) │
+      └────────────────────────────────────────────────────────┘
+      ```
+
+      **Key insight:** Use GitHub-hosted runners for standard workloads and public repositories; use self-hosted runners only when you require internal network access or specialized hardware.
+    key_points:
+      - "GitHub-hosted runners provide clean, ephemeral, pre-configured VMs"
+      - "Self-hosted runners run on your own servers, VPCs, or Kubernetes clusters"
+      - "Never attach self-hosted runners to public repos due to untrusted fork PR risks"
+
+  - title: "The `runs-on:` Directive and Standard Labels"
+    content: |
+      The `runs-on:` key defines the runner environment required for a job.
+
+      **Standard GitHub-Hosted Labels:**
+      - `ubuntu-latest` (currently maps to Ubuntu 24.04 or 22.04 LTS)
+      - `ubuntu-24.04` / `ubuntu-22.04` (pinned Ubuntu LTS releases)
+      - `windows-latest` / `windows-2022` (Windows Server)
+      - `macos-latest` / `macos-14` (Apple Silicon M1/M2 macOS runners)
+
+      ```yaml
+      jobs:
+        linux-build:
+          runs-on: ubuntu-latest
+          steps:
+            - run: uname -a
+
+        mac-build:
+          runs-on: macos-latest
+          steps:
+            - run: sw_vers
+      ```
+
+      **Rule:** Labels are case-insensitive, but must match recognized runner aliases or exact runner tags.
+
+      **Key insight:** Always pin to explicit OS versions (e.g. `ubuntu-24.04`) in enterprise production to prevent breaking changes when `*-latest` rolls over.
+    key_points:
+      - "runs-on specifies the target runner operating system or custom tags"
+      - "Common hosted targets: ubuntu-latest, windows-latest, macos-latest"
+      - "Pinning explicit versions (ubuntu-24.04) prevents unexpected image rollover breaks"
+
+  - title: "Self-Hosted Labels and Ephemeral Scaling"
+    content: |
+      When registering a self-hosted runner, you attach custom labels such as `gpu`, `arm64`, or `high-mem`.
+
+      **Label Matching Syntax:**
+      To target a self-hosted runner, provide a list of required labels. A runner must match **all** specified labels:
+
+      ```yaml
+      jobs:
+        train-model:
+          runs-on: [self-hosted, linux, gpu, high-mem]
+          steps:
+            - run: nvidia-smi
+      ```
+
+      **The Ephemeral Runner Pattern:**
+      Because self-hosted runners persist their filesystem between jobs, previous builds can contaminate subsequent runs.
+      Modern self-hosted runners use the `--ephemeral` flag or Kubernetes controllers (like ARC - Actions Runner Controller) to spin up a fresh pod/VM for exactly one job and terminate it immediately after.
+
+      **Key insight:** Using label arrays `[self-hosted, linux, label]` guarantees jobs route only to runners that meet all hardware criteria.
+    key_points:
+      - "Target self-hosted runners using an array of labels: [self-hosted, ...]"
+      - "A runner must possess all specified labels to accept the job"
+      - "Ephemeral runners (--ephemeral or ARC) eliminate cross-job contamination"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Inspect Runner Kernel and Architecture"
+    instructions: |
+      **What we're doing:** Inspect your current OS kernel and machine architecture.
+
+      **Why this matters:** In cross-platform workflows, verifying the runner architecture prevents running x86 binaries on ARM or vice-versa.
+
+      **The command pattern:**
+      ```
+      uname -sm
+      ```
+
+      Run this command:
+    command_hint: "uname -sm"
+    validation:
+      type: "command_output"
+      command: "uname -sm"
+      expected_contains: "Linux"
+    points: 10
+
+scenarios:
+  - id: "fix-invalid-runner-label"
+    title: "Fix Invalid Runner Label Typo"
+    description: |
+      A developer specified `runs-on: ubuntu` in `.github/workflows/ci.yml`. GitHub Actions rejects this because the alias requires `-latest` or a version number.
+      Edit `.github/workflows/ci.yml` and replace `ubuntu` with `ubuntu-latest`.
+    manifest: |
+      name: Build Suite
+      on: [push]
+      jobs:
+        compile:
+          runs-on: ubuntu
+          steps:
+            - run: echo "Compiling..."
+    hints:
+      - "Valid runner aliases are ubuntu-latest, windows-latest, or macos-latest."
+      - "Change 'runs-on: ubuntu' to 'runs-on: ubuntu-latest'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "fix-self-hosted-label-format"
+    title: "Format Self-Hosted Runner Labels Array"
+    description: |
+      A workflow tried to target a self-hosted GPU runner using a comma-separated string `runs-on: "self-hosted, linux, gpu"`.
+      GitHub treats that entire string as a single non-existent label!
+      Update `.github/workflows/ci.yml` to use YAML array format: `runs-on: [self-hosted, linux, gpu]`.
+    manifest: |
+      name: GPU Pipeline
+      on: [push]
+      jobs:
+        cuda-test:
+          runs-on: "self-hosted, linux, gpu"
+          steps:
+            - run: echo "Running CUDA benchmarks..."
+    hints:
+      - "Multiple runner labels must be specified as a YAML list or inline array."
+      - "Use: runs-on: [self-hosted, linux, gpu]"
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "Why is it dangerous to attach self-hosted runners to public repositories?"
+      options:
+        - "Untrusted pull requests from forks can execute arbitrary code on your internal network"
+        - "Public repos exceed runner API rate limits"
+        - "GitHub charges double for self-hosted runners on public repositories"
+        - "Self-hosted runners do not support git checkout on public repos"
+      correct: "Untrusted pull requests from forks can execute arbitrary code on your internal network"
+      explanation: "Anyone can fork a public repo and submit a PR with malicious workflow steps that execute directly inside your runner's network environment."
+      points: 10
+
+    - type: "true_false"
+      question: "A runner must possess ALL labels specified in the 'runs-on: [self-hosted, linux, gpu]' list to execute the job."
+      correct: true
+      explanation: "GitHub Actions uses logical AND when matching runner labels in an array."
+      points: 10
+
+    - type: "multiple_choice"
+      question: "Which pattern prevents filesystem contamination between jobs on self-hosted runners?"
+      options:
+        - "Using ephemeral runners that terminate after a single job"
+        - "Running 'rm -rf /' before every job"
+        - "Disabling actions/checkout"
+        - "Setting continue-on-error to true"
+      correct: "Using ephemeral runners that terminate after a single job"
+      explanation: "Ephemeral runners (--ephemeral flag or Kubernetes ARC) spin up a clean environment for one job and immediately self-destruct."
+      points: 10
