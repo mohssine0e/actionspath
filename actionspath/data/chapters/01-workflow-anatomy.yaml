@@ -20,11 +20,15 @@ concepts:
     .github/workflows/<workflow-name>.yml
     ```
 
+    **Why YAML? (DevOps & Interview Trivia):**
+    YAML originally stood for *"Yet Another Markup Language"*, but was later redefined as the recursive acronym *"YAML Ain't Markup Language"*. This distinction emphasizes that YAML is built specifically for **data serialization** (hierarchical pipelines, keys, and values), not document formatting like HTML or XML.
+
     **Key insight:** Workflows are version-controlled alongside your application code.
   key_points:
   - "GitHub Actions automates building, testing, and deploying code"
   - "Workflow files must live inside .github/workflows/"
   - "Workflows are triggered by events and execute in isolated virtual machines"
+  - "YAML stands recursively for 'YAML Ain't Markup Language' (data serialization)"
 
   diagram:
     type: tree
