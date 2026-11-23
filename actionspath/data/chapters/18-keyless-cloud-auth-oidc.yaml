@@ -38,28 +38,35 @@ concepts:
   - "Temporary credentials expire automatically and leave zero secrets in GitHub"
 
   diagram:
+    type: sequence
     title: Keyless OIDC Identity Token Exchange Flow
-    diagram: "GitHub Action Runner               GitHub OIDC Provider            \
-      \      Cloud STS (AWS/GCP/Azure)\n         │                               \
-      \     │                                        │\n         │ 1. Request JWT
-      token with          │                                        │\n         │ \
-      \   permissions: id-token: write    │                                      \
-      \  │\n         ├───────────────────────────────────▶│                      \
-      \                  │\n         │                                    │      \
-      \                                  │\n         │ 2. Issues cryptographically
-      signed │                                        │\n         │    JWT with repo/ref/sha
-      claims    │                                        │\n         │◀───────────────────────────────────┤\
-      \                                        │\n         │                     \
-      \                                                        │\n         │ 3. Send
-      JWT: aws-actions/configure-aws-credentials(role-to-assume)          │\n    \
-      \     ├────────────────────────────────────────────────────────────────────────────▶│\n\
-      \         │                                                                \
-      \             │\n         │ 4. Cloud verifies signature against https://token.actions.githubusercontent.com\n\
-      \         │    and validates Subject claim (repo:owner/repo:ref:refs/heads/main)\
-      \        │\n         │                                                     \
-      \                        │\n         │ 5. Returns short-lived, 1-hour STS credentials\
-      \                              │\n         │◀────────────────────────────────────────────────────────────────────────────┤\n\
-      \         ▼\n  Secure cloud deployment without any long-lived secret keys!"
+    participants:
+    - GitHub Runner
+    - GitHub OIDC Provider
+    - Cloud STS (AWS/GCP)
+    steps:
+    - step: 1
+      from: GitHub Runner
+      to: GitHub OIDC Provider
+      action: Request JWT ID Token
+      desc: "Runner requests token using 'permissions: id-token: write'"
+    - step: 2
+      from: GitHub OIDC Provider
+      to: GitHub Runner
+      action: Return Signed OIDC JWT
+      desc: Cryptographically signed JWT with repo, ref, and actor claims
+    - step: 3
+      from: GitHub Runner
+      to: Cloud STS (AWS/GCP)
+      action: AssumeRoleWithWebIdentity(RoleArn, JWT)
+      desc: Presents JWT directly to cloud provider via aws-actions or 
+        google-github-actions
+    - step: 4
+      from: Cloud STS (AWS/GCP)
+      to: GitHub Runner
+      action: Issue Short-Lived Scoped Credentials
+      desc: Cloud provider verifies signature and subject claim, granting 1-hour
+        credentials
 - title: "The `id-token: write` Permission & Claims"
   content: |
     To request an OIDC token from GitHub's internal identity provider, the workflow must declare the `id-token: write` permission.

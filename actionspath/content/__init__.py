@@ -12,6 +12,7 @@ from actionspath.content.loader import (
 )
 from actionspath.content.renderer import (
     render_ascii_diagram,
+    render_terminal_diagram,
     render_compact_breadcrumb,
     render_concepts,
     render_concept,
@@ -67,6 +68,7 @@ __all__ = [
     "ChapterValidationError",
     "render_concepts",
     "render_ascii_diagram",
+    "render_terminal_diagram",
     "render_compact_breadcrumb",
     "render_concept",
     "render_chapter_header",

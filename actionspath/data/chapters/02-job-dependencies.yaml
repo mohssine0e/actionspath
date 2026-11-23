@@ -24,20 +24,34 @@ concepts:
   - "Sequencing is required when one job needs outputs or verification from another"
 
   diagram:
+    type: pipeline_dag
     title: Directed Acyclic Graph (DAG) with 'needs:'
-    diagram: "┌──────────────────┐           ┌──────────────────┐\n         │    Job:
-      lint     │           │    Job: unit     │\n         │ (runs in parallel│   \
-      \        │(runs in parallel)│\n         └────────┬─────────┘           └────────┬─────────┘\n\
-      \                  │                              │\n                  └──────────────┬───────────────┘\n\
-      \                                 ▼\n                     ┌───────────────────────┐\n\
-      \                     │      Job: build       │\n                     │  needs:
-      [lint, unit]  │\n                     └───────────┬───────────┘\n          \
-      \                       ▼\n                     ┌───────────────────────┐\n\
-      \                     │     Job: staging      │\n                     │    \
-      \ needs: build      │\n                     └───────────┬───────────┘\n    \
-      \                             ▼\n                     ┌───────────────────────┐\n\
-      \                     │    Job: production    │\n                     │    needs:
-      staging     │\n                     └───────────────────────┘"
+    stages:
+    - name: 1. Parallel Checks
+      jobs:
+      - name: lint-code
+        runner: ubuntu-latest
+      - name: unit-tests
+        runner: ubuntu-latest
+    - name: 2. Build Artifact
+      needs:
+      - lint-code
+      - unit-tests
+      jobs:
+      - name: build-binary
+        runner: ubuntu-latest
+    - name: 3. Staging Deploy
+      needs:
+      - build-binary
+      jobs:
+      - name: deploy-staging
+        runner: self-hosted
+    - name: 4. Production
+      needs:
+      - deploy-staging
+      jobs:
+      - name: deploy-prod
+        runner: self-hosted
 - title: "The `needs` Keyword"
   content: |
     The `needs` keyword defines dependencies between jobs, turning your pipeline into a **Directed Acyclic Graph (DAG)**.

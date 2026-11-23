@@ -27,24 +27,27 @@ concepts:
   - "Workflows are triggered by events and execute in isolated virtual machines"
 
   diagram:
+    type: tree
     title: GitHub Actions Execution Hierarchy
-    diagram: "╔═══════════════════════════════════════════════════════════════════╗\n\
-      \    ║                     GitHub Event Trigger                          ║\n\
-      \    ║        [ push / pull_request / schedule / workflow_dispatch ]     ║\n\
-      \    ╚═════════════════════════════════╦═════════════════════════════════╝\n\
-      \                                      ▼\n    ╔═══════════════════════════════════════════════════════════════════╗\n\
-      \    ║                 Workflow File (.github/workflows/*.yml)          ║\n\
-      \    ╚═════════════════════════════════╦═════════════════════════════════╝\n\
-      \                                      ▼\n                  ┌───────────────────┴───────────────────┐\n\
-      \                  ▼                                       ▼\n    ┌───────────────────────────┐\
-      \           ┌───────────────────────────┐\n    │  Job 1: Build & Unit Test │\
-      \           │  Job 2: Security Lint     │\n    │  [runs-on: ubuntu-latest] │\
-      \           │  [runs-on: ubuntu-latest] │\n    └─────────────┬─────────────┘\
-      \           └─────────────┬─────────────┘\n                  ▼             \
-      \                          ▼\n        Steps in Sequence:                   \
-      \   Steps in Sequence:\n        1. actions/checkout@v4                  1. actions/checkout@v4\n\
-      \        2. actions/setup-node@v4                2. run: npm run lint\n    \
-      \    3. run: npm test"
+    root:
+      label: ⚡ GitHub Event Trigger
+      badge: push | pull_request | workflow_dispatch
+      children:
+      - label: 📄 Workflow File (.github/workflows/ci.yml)
+        badge: orchestrator
+        children:
+        - label: '⚙️ Job 1: Build & Unit Test'
+          badge: 'runs-on: ubuntu-latest'
+          children:
+          - label: '📦 Step 1: actions/checkout@v4'
+          - label: '🔧 Step 2: actions/setup-node@v4'
+            badge: 'node: 20'
+          - label: '▶️ Step 3: run: npm test'
+        - label: '⚙️ Job 2: Security Lint'
+          badge: 'runs-on: ubuntu-latest'
+          children:
+          - label: '📦 Step 1: actions/checkout@v4'
+          - label: '▶️ Step 2: run: npm run lint'
 - title: "Workflow Triggers (`on`)"
   content: |
     The `on` keyword defines **when** a workflow executes. Without a trigger, a workflow will never run.

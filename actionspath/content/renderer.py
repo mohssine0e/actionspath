@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from rich.columns import Columns
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -9,6 +10,7 @@ from rich.progress_bar import ProgressBar
 from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
+from rich.tree import Tree
 
 from actionspath.console import get_console
 
@@ -72,7 +74,254 @@ def render_concept(
     # Render architecture diagram if present
     diagram = concept.get("diagram")
     if diagram:
+        render_terminal_diagram(diagram, console)
+
+
+def render_terminal_diagram(
+    diagram: str | dict[str, Any],
+    console: Console | None = None,
+) -> None:
+    """Dispatch to appropriate terminal diagram archetype or fallback to ascii."""
+    if console is None:
+        console = get_console()
+
+    if not isinstance(diagram, dict):
         render_ascii_diagram(diagram, console)
+        return
+
+    d_type = diagram.get("type")
+    if d_type == "tree":
+        render_tree_diagram(diagram, console)
+    elif d_type == "pipeline_dag":
+        render_pipeline_dag(diagram, console)
+    elif d_type == "sequence":
+        render_sequence_timeline(diagram, console)
+    elif d_type == "state_flow":
+        render_state_flow(diagram, console)
+    else:
+        render_ascii_diagram(diagram, console)
+
+
+def render_tree_diagram(data: dict[str, Any], console: Console) -> None:
+    """Render a structural hierarchy using rich.tree.Tree."""
+    title = data.get("title", "Execution Hierarchy")
+    root_data = data.get("root", {})
+    if not root_data:
+        render_ascii_diagram(data, console)
+        return
+
+    root_label = root_data.get("label", "Root")
+    root_badge = root_data.get("badge", "")
+    badge_str = f" [dim]({root_badge})[/dim]" if root_badge else ""
+    tree = Tree(f"[bold yellow]{root_label}[/bold yellow]{badge_str}")
+
+    def add_children(parent_node, children_list):
+        for item in children_list:
+            lbl = item.get("label", "")
+            badge = item.get("badge", "")
+            badge_text = f" [dim cyan]({badge})[/dim cyan]" if badge else ""
+
+            if "job" in lbl.lower():
+                node_text = f"[bold magenta]{lbl}[/bold magenta]{badge_text}"
+            elif "step" in lbl.lower() or "action" in lbl.lower():
+                node_text = f"[green]{lbl}[/green]{badge_text}"
+            elif "workflow" in lbl.lower():
+                node_text = f"[bold cyan]{lbl}[/bold cyan]{badge_text}"
+            else:
+                node_text = f"[white]{lbl}[/white]{badge_text}"
+
+            child_node = parent_node.add(node_text)
+            if "children" in item and item["children"]:
+                add_children(child_node, item["children"])
+
+    if "children" in root_data:
+        add_children(tree, root_data["children"])
+
+    panel = Panel(
+        tree,
+        title=f"[bold green]📊 {title}[/bold green]",
+        border_style="cyan",
+        padding=(1, 2),
+    )
+    console.print(panel)
+
+
+def render_pipeline_dag(data: dict[str, Any], console: Console) -> None:
+    """Render multi-job dependency graph (DAG) or parallel matrix stages."""
+    title = data.get("title", "Pipeline Dependency Graph")
+    stages = data.get("stages", [])
+    if not stages:
+        render_ascii_diagram(data, console)
+        return
+
+    width = console.width or 80
+    use_horizontal = width >= 90 and len(stages) <= 4
+
+    if use_horizontal:
+        grid = Table.grid(padding=(0, 1))
+        for idx in range(len(stages) * 2 - 1):
+            grid.add_column()
+
+        row_items = []
+        for idx, stage in enumerate(stages):
+            if idx > 0:
+                row_items.append(Text("\n ──▶ \n", style="bold green"))
+
+            st_name = stage.get("name", f"Stage {idx+1}")
+            jobs = stage.get("jobs", [])
+            needs = stage.get("needs", [])
+            lines = []
+            if needs:
+                lines.append(f"[dim]needs: {', '.join(needs)}[/dim]")
+            for j in jobs:
+                j_name = j.get("name", j) if isinstance(j, dict) else str(j)
+                runner = f" [dim]({j.get('runner')})[/dim]" if isinstance(j, dict) and "runner" in j else ""
+                lines.append(f"[bold magenta]⚙️ {j_name}[/bold magenta]{runner}")
+
+            stage_panel = Panel(
+                "\n".join(lines) if lines else "[dim]No jobs[/dim]",
+                title=f"[bold yellow]{st_name}[/bold yellow]",
+                border_style="bright_blue",
+                padding=(0, 1),
+            )
+            row_items.append(stage_panel)
+
+        grid.add_row(*row_items)
+        outer_panel = Panel(
+            grid,
+            title=f"[bold green]📊 {title}[/bold green]",
+            border_style="cyan",
+            padding=(1, 2),
+        )
+        console.print(outer_panel)
+    else:
+        elements = []
+        for idx, stage in enumerate(stages):
+            st_name = stage.get("name", f"Stage {idx+1}")
+            jobs = stage.get("jobs", [])
+            needs = stage.get("needs", [])
+            lines = []
+            if needs:
+                lines.append(f"[dim]needs: {', '.join(needs)}[/dim]")
+            for j in jobs:
+                j_name = j.get("name", j) if isinstance(j, dict) else str(j)
+                runner = f" [dim]({j.get('runner')})[/dim]" if isinstance(j, dict) and "runner" in j else ""
+                lines.append(f"[bold magenta]⚙️ {j_name}[/bold magenta]{runner}")
+
+            elements.append(
+                Panel(
+                    "\n".join(lines) if lines else "[dim]No jobs[/dim]",
+                    title=f"[bold yellow]{st_name}[/bold yellow]",
+                    border_style="bright_blue",
+                    padding=(0, 1),
+                )
+            )
+            if idx < len(stages) - 1:
+                elements.append(Text("      ▼", style="bold green"))
+
+        group_content = Table.grid()
+        for elem in elements:
+            group_content.add_row(elem)
+
+        outer_panel = Panel(
+            group_content,
+            title=f"[bold green]📊 {title}[/bold green]",
+            border_style="cyan",
+            padding=(1, 2),
+        )
+        console.print(outer_panel)
+
+
+def render_sequence_timeline(data: dict[str, Any], console: Console) -> None:
+    """Render chronological protocol exchange (e.g. OIDC handshake)."""
+    title = data.get("title", "Protocol Sequence")
+    steps = data.get("steps", [])
+    if not steps:
+        render_ascii_diagram(data, console)
+        return
+
+    table = Table(
+        show_header=True,
+        header_style="bold cyan",
+        border_style="dim",
+        padding=(0, 1),
+        expand=True,
+    )
+    table.add_column("#", style="bold yellow", width=3, justify="center")
+    table.add_column("From", style="magenta", width=14)
+    table.add_column("Dir", style="bold green", width=3, justify="center")
+    table.add_column("To", style="cyan", width=16)
+    table.add_column("Action / Payload", style="white")
+
+    for idx, s in enumerate(steps):
+        s_num = str(s.get("step", idx + 1))
+        origin = s.get("from", "Runner")
+        target = s.get("to", "Service")
+        action = s.get("action", "")
+        desc = s.get("desc", "")
+        full_action = f"[bold]{action}[/bold]\n[dim]{desc}[/dim]" if desc else action
+        table.add_row(s_num, origin, "──▶", target, full_action)
+
+    panel = Panel(
+        table,
+        title=f"[bold green]📊 {title}[/bold green]",
+        border_style="cyan",
+        padding=(1, 2),
+    )
+    console.print(panel)
+
+
+def render_state_flow(data: dict[str, Any], console: Console) -> None:
+    """Render state transitions (e.g. Blue/Green traffic flips or Canary gates)."""
+    title = data.get("title", "Deployment State Transition")
+    before = data.get("before", {})
+    after = data.get("after", {})
+
+    def format_state_lines(state_items):
+        lines = []
+        for it in state_items:
+            lbl = it.get("label", "")
+            traffic = it.get("traffic", "")
+            status = it.get("status", "")
+            color = it.get("color", "white")
+            lines.append(f"[{color}]• {lbl}[/{color}] [bold]{traffic}[/bold]\n  [dim]{status}[/dim]")
+        return "\n\n".join(lines)
+
+    p_before = Panel(
+        format_state_lines(before.get("state", [])),
+        title=f"[bold yellow]{before.get('title', 'Before')}[/bold yellow]",
+        border_style="blue",
+        padding=(1, 1),
+    )
+    p_after = Panel(
+        format_state_lines(after.get("state", [])),
+        title=f"[bold green]{after.get('title', 'After')}[/bold green]",
+        border_style="green",
+        padding=(1, 1),
+    )
+
+    width = console.width or 80
+    if width >= 90:
+        grid = Table.grid(padding=(0, 1))
+        grid.add_column(ratio=1)
+        grid.add_column(width=10, justify="center")
+        grid.add_column(ratio=1)
+        grid.add_row(p_before, Text("\n\n ──▶ \n(switch)", style="bold yellow"), p_after)
+        content = grid
+    else:
+        grid = Table.grid(padding=(0, 1))
+        grid.add_row(p_before)
+        grid.add_row(Text("      ▼ (Traffic Switch)", style="bold yellow"))
+        grid.add_row(p_after)
+        content = grid
+
+    panel = Panel(
+        content,
+        title=f"[bold green]📊 {title}[/bold green]",
+        border_style="cyan",
+        padding=(1, 2),
+    )
+    console.print(panel)
 
 
 def render_ascii_diagram(

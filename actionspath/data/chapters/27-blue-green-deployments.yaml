@@ -30,6 +30,31 @@ concepts:
   - "New code deploys to the idle environment and undergoes smoke tests"
   - "Traffic switches instantaneously at the load balancer or DNS router"
 
+  diagram:
+    type: state_flow
+    title: Blue-Green Zero-Downtime Traffic Switch
+    before:
+      title: 'Phase 1: Test New Green Environment'
+      state:
+      - label: Blue Environment (Active)
+        traffic: 100% Traffic
+        status: Serving all production users (v1.0)
+        color: blue
+      - label: Green Environment (Deploying)
+        traffic: 0% Traffic
+        status: Running deployment & smoke tests (v1.1)
+        color: dim green
+    after:
+      title: 'Phase 2: Switch Traffic to Green'
+      state:
+      - label: Blue Environment (Standby)
+        traffic: 0% Traffic
+        status: Idle / Instant rollback ready if green faults
+        color: dim blue
+      - label: Green Environment (Active)
+        traffic: 100% Traffic
+        status: Serving all production users live (v1.1)
+        color: bold green
 - title: "Automating Traffic Switching in CI/CD"
   content: |
     A robust Blue-Green workflow follows a strict four-stage execution sequence:

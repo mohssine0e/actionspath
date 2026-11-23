@@ -592,3 +592,109 @@ class TestRenderCommandPrompt:
         result = strip_ansi(output.getvalue())
         assert "'s'" in result or "s" in result.lower()
         assert "'q'" in result or "q" in result.lower()
+
+
+class TestDiagramRenderers:
+    """Tests for terminal diagram archetypes."""
+
+    def test_render_tree_diagram(self):
+        from actionspath.content.renderer import render_tree_diagram
+        console, output = make_test_console()
+        data = {
+            "type": "tree",
+            "title": "Hierarchy Test",
+            "root": {
+                "label": "Event Trigger",
+                "badge": "push",
+                "children": [
+                    {
+                        "label": "Job 1",
+                        "badge": "ubuntu-latest",
+                        "children": [{"label": "Step 1: checkout"}]
+                    }
+                ]
+            }
+        }
+        render_tree_diagram(data, console)
+        out = output.getvalue()
+        assert "Hierarchy Test" in out
+        assert "Event Trigger" in out
+        assert "Job 1" in out
+
+    def test_render_pipeline_dag_horizontal_and_vertical(self):
+        from actionspath.content.renderer import render_pipeline_dag
+        # Test horizontal (width 120)
+        output_wide = StringIO()
+        console_wide = Console(file=output_wide, force_terminal=True, width=120)
+        data = {
+            "type": "pipeline_dag",
+            "title": "DAG Test",
+            "stages": [
+                {"name": "Stage 1", "jobs": [{"name": "lint", "runner": "ubuntu"}]},
+                {"name": "Stage 2", "needs": ["Stage 1"], "jobs": [{"name": "test", "runner": "ubuntu"}]},
+            ]
+        }
+        render_pipeline_dag(data, console_wide)
+        assert "Stage 1" in output_wide.getvalue()
+        assert "Stage 2" in output_wide.getvalue()
+
+        # Test vertical reflow (width 70)
+        output_narrow = StringIO()
+        console_narrow = Console(file=output_narrow, force_terminal=True, width=70)
+        render_pipeline_dag(data, console_narrow)
+        assert "Stage 1" in output_narrow.getvalue()
+        assert "Stage 2" in output_narrow.getvalue()
+
+    def test_render_sequence_timeline(self):
+        from actionspath.content.renderer import render_sequence_timeline
+        console, output = make_test_console()
+        data = {
+            "type": "sequence",
+            "title": "OIDC Exchange",
+            "steps": [
+                {"step": 1, "from": "Runner", "to": "GitHub OIDC", "action": "Request JWT"}
+            ]
+        }
+        render_sequence_timeline(data, console)
+        out = output.getvalue()
+        assert "OIDC Exchange" in out
+        assert "Runner" in out
+        assert "GitHub OIDC" in out
+        assert "Request JWT" in out
+
+    def test_render_state_flow(self):
+        from actionspath.content.renderer import render_state_flow
+        console, output = make_test_console()
+        data = {
+            "type": "state_flow",
+            "title": "Blue-Green Switch",
+            "before": {
+                "title": "Phase 1",
+                "state": [{"label": "Blue", "traffic": "100%", "status": "Active", "color": "blue"}]
+            },
+            "after": {
+                "title": "Phase 2",
+                "state": [{"label": "Green", "traffic": "100%", "status": "Live", "color": "green"}]
+            }
+        }
+        render_state_flow(data, console)
+        out = output.getvalue()
+        assert "Blue-Green Switch" in out
+        assert "Phase 1" in out
+        assert "Phase 2" in out
+
+    def test_render_terminal_diagram_dispatch(self):
+        from actionspath.content.renderer import render_terminal_diagram
+        console, output = make_test_console()
+        # Test string fallback
+        render_terminal_diagram("Legacy ASCII Diagram", console)
+        assert "Legacy ASCII Diagram" in output.getvalue()
+
+        # Test dict dispatch
+        render_terminal_diagram({
+            "type": "tree",
+            "title": "Tree Dispatch",
+            "root": {"label": "Root Node"}
+        }, console)
+        assert "Tree Dispatch" in output.getvalue()
+
