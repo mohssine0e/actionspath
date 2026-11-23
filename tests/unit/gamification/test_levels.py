@@ -41,7 +41,7 @@ class TestGetLevelForScore:
         """Score 0 should return level 1."""
         result = get_level_for_score(0)
         assert result["level"] == 1
-        assert result["name"] == "Pod Seedling"
+        assert result["name"] == "Workflow Rookie"
 
     def test_score_99_returns_level_1(self):
         """Score 99 (just below level 2) should return level 1."""
@@ -52,19 +52,19 @@ class TestGetLevelForScore:
         """Score 100 (exactly level 2 threshold) should return level 2."""
         result = get_level_for_score(100)
         assert result["level"] == 2
-        assert result["name"] == "Container Cadet"
+        assert result["name"] == "Action Apprentice"
 
     def test_score_1000_returns_level_5(self):
         """Score 1000 should return level 5."""
         result = get_level_for_score(1000)
         assert result["level"] == 5
-        assert result["name"] == "Service Scout"
+        assert result["name"] == "Matrix Master"
 
     def test_score_6600_returns_max_level(self):
         """Score 6600 (max level threshold) should return level 12."""
         result = get_level_for_score(6600)
         assert result["level"] == 12
-        assert result["name"] == "Kubernetes Kurator"
+        assert result["name"] == "Actions Architect"
 
     def test_very_high_score_returns_max_level(self):
         """Very high score should still return level 12."""
@@ -85,7 +85,7 @@ class TestGetNextLevel:
         result = get_next_level(1)
         assert result is not None
         assert result["level"] == 2
-        assert result["name"] == "Container Cadet"
+        assert result["name"] == "Action Apprentice"
 
     def test_level_11_next_is_level_12(self):
         """Next level after 11 should be level 12."""
@@ -151,14 +151,14 @@ class TestCheckLevelUp:
         result = check_level_up(90, 110)
         assert result is not None
         assert result["level"] == 2
-        assert result["name"] == "Container Cadet"
+        assert result["name"] == "Action Apprentice"
 
     def test_level_up_multiple_levels(self):
         """Large score jump should return the correct new level."""
         result = check_level_up(50, 1100)  # Jump from level 1 to level 5
         assert result is not None
         assert result["level"] == 5
-        assert result["name"] == "Service Scout"
+        assert result["name"] == "Matrix Master"
 
     def test_exact_threshold(self):
         """Hitting exact threshold should trigger level up."""

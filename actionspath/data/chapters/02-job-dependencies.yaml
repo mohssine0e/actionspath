@@ -179,3 +179,16 @@ quiz:
         - "if: unsuccessful()"
       correct: "if: failure()"
       points: 10
+
+    - type: "fill_yaml"
+      question: "Fill in the missing dependency keyword so 'deploy' waits for 'build':"
+      yaml_template: |
+        jobs:
+          build:
+            runs-on: ubuntu-latest
+          deploy:
+            <BLANK>: build
+            runs-on: ubuntu-latest
+      expected: "needs"
+      explanation: "The 'needs:' directive specifies upstream prerequisite jobs that must succeed before this job can run."
+      points: 10

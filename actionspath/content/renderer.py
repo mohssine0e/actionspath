@@ -6,6 +6,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.progress_bar import ProgressBar
+from rich.syntax import Syntax
 from rich.table import Table
 from rich.text import Text
 
@@ -82,6 +83,29 @@ def render_key_points(key_points: list[str], console: Console | None = None) -> 
     console.print("[success]Key Points:[/success]")
     for point in key_points:
         console.print(f"  [success]•[/success] {point}")
+
+
+def render_compact_breadcrumb(
+    chapter_num: int,
+    chapter_title: str,
+    section: str,
+    current: int | None = None,
+    total: int | None = None,
+    console: Console | None = None,
+) -> None:
+    """Render a 1-line compact header that prevents terminal scrolling."""
+    if console is None:
+        console = get_console()
+
+    part = f"({current}/{total})" if current is not None and total is not None else ""
+    line = Text.assemble(
+        ("ActionsPath", "bold cyan"),
+        (" › ", "dim"),
+        (f"Chapter {chapter_num}: {chapter_title}", "bold magenta"),
+        (" › ", "dim"),
+        (f"{section} {part}".strip(), "yellow"),
+    )
+    console.print(Panel(line, border_style="cyan", padding=(0, 1)))
 
 
 def render_chapter_header(
@@ -178,6 +202,7 @@ def render_navigation_help(
         # Last concept - show continue to practice
         nav_parts.append("[info]\\[c][/info]ontinue")
     nav_parts.append("[info]\\[?][/info] Ask AI")
+    nav_parts.append("[info]\\[b][/info]ack to menu")
     nav_parts.append("[info]\\[q][/info]uit")
 
     nav_text = "  ".join(nav_parts)
@@ -333,13 +358,13 @@ def render_main_menu(
     # Hands-on mode toggle with status
     if hands_on_mode:
         hands_on_status = "[success]ON[/success]"
-        hands_on_desc = "[dim]kubectl practice enabled[/dim]"
+        hands_on_desc = "[dim]workspace practice enabled[/dim]"
     else:
         hands_on_status = "[warning]OFF[/warning]"
         hands_on_desc = "[dim]theory only mode[/dim]"
     options.append(f"[info]\\[h][/info] Hands-On Mode: {hands_on_status} {hands_on_desc}")
 
-    options.append("[info]\\[e][/info] Configure K8s Environment")
+    options.append("[info]\\[e][/info] Run CI/CD Environment Doctor")
     options.append("[info]\\[a][/info] Configure AI")
     options.append("[info]\\[r][/info] Reset Progress")
     options.append("[info]\\[q][/info] Quit")
@@ -639,7 +664,7 @@ def render_scenario_deployed(
     scenario: dict[str, Any],
     console: Console | None = None,
 ) -> None:
-    """Render message that scenario workspace has been prepared.
+    """Render message and preview of prepared scenario workspace.
 
     Args:
         scenario: Scenario dictionary.
@@ -648,9 +673,14 @@ def render_scenario_deployed(
     if console is None:
         console = get_console()
 
+    manifest = scenario.get("manifest", "").strip()
+    if manifest:
+        console.print()
+        syntax = Syntax(manifest, "yaml", theme="monokai", line_numbers=True, word_wrap=True)
+        console.print(Panel(syntax, title="[bold cyan]Initial Broken Workflow: .github/workflows/ci.yml[/bold cyan]", border_style="cyan", padding=(0, 1)))
+
     console.print()
-    console.print("[warning]⚠️  A practice workspace with a broken workflow has been initialized.[/warning]")
-    console.print("[hint]Inspect .github/workflows/, run actionlint or git commands to diagnose and fix the issue.[/hint]")
+    console.print("[warning]⚠️  Workspace ready. Press [bold cyan]\\[e][/bold cyan] to edit in nano, save, and auto-validate. Press [bold cyan]\\[r][/bold cyan] to reset.[/warning]")
 
 
 def render_scenario_hint(
@@ -702,7 +732,10 @@ def render_scenario_navigation_help(
 
     # Build navigation options
     nav_parts = []
-    nav_parts.append("[info]\\[v][/info]erify solution")
+    nav_parts.append("[info]\\[e][/info]dit file")
+    nav_parts.append("[info]\\[r][/info]eset")
+    nav_parts.append("[info]\\[d][/info]iff")
+    nav_parts.append("[info]\\[v][/info]erify")
 
     if hints_used < total_hints:
         nav_parts.append(f"[info]\\[h][/info]int ({hints_used}/{total_hints})")
@@ -1346,18 +1379,18 @@ def render_hands_on_choice(
     # Option 1: Full Experience
     content.append("  [1] Full Experience ", style="bold cyan")
     content.append("(Recommended)\n", style="dim")
-    content.append("      Learn concepts + hands-on practice with real kubectl\n", style="")
-    content.append("      Requires: Docker, kubectl, minikube\n\n", style="dim")
+    content.append("      Learn concepts + hands-on practice in local Git workspaces\n", style="")
+    content.append("      Requires: git, gh (optional: actionlint, act)\n\n", style="dim")
 
     # Option 2: Theory Only
     content.append("  [2] Theory Only\n", style="bold cyan")
     content.append("      Learn concepts and take quizzes\n", style="")
-    content.append("      No Kubernetes setup needed\n", style="")
+    content.append("      No local git workspace changes needed\n", style="")
     content.append("      You can enable hands-on mode later from the main menu\n", style="dim")
 
     panel = Panel(
         content,
-        title="[bold cyan]Welcome to Kubepath![/bold cyan]",
+        title="[bold cyan]Welcome to ActionsPath![/bold cyan]",
         border_style="cyan",
         padding=(1, 2),
     )
@@ -1379,10 +1412,10 @@ def render_hands_on_status(
 
     if enabled:
         status = "[success]ON[/success]"
-        description = "Practice kubectl commands on a real cluster"
+        description = "Practice GitHub Actions in local Git workspaces"
     else:
         status = "[warning]OFF[/warning]"
-        description = "Theory mode - enable to practice kubectl"
+        description = "Theory mode - enable to practice in workspaces"
 
     console.print(f"[info]\\[h][/info] Hands-On Mode: {status}")
     console.print(f"      [dim]{description}[/dim]")
@@ -1405,7 +1438,7 @@ def render_hands_on_skip_message(
 
     console.print()
     console.print(f"[dim]Skipping {section_display} (Theory mode)[/dim]")
-    console.print("[dim]Enable hands-on mode from main menu [h] to practice kubectl commands[/dim]")
+    console.print("[dim]Enable hands-on mode from main menu [h] to practice in local workspaces[/dim]")
     console.print()
 
 

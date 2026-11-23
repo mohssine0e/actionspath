@@ -11,6 +11,7 @@ from actionspath.content.loader import (
     ChapterValidationError,
 )
 from actionspath.content.renderer import (
+    render_compact_breadcrumb,
     render_concepts,
     render_concept,
     render_chapter_header,
@@ -64,6 +65,7 @@ __all__ = [
     "ChapterNotFoundError",
     "ChapterValidationError",
     "render_concepts",
+    "render_compact_breadcrumb",
     "render_concept",
     "render_chapter_header",
     "render_navigation_help",

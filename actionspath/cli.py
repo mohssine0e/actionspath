@@ -12,6 +12,7 @@ from actionspath.content import (
     get_all_chapter_content_counts,
     ChapterNotFoundError,
     ChapterValidationError,
+    render_compact_breadcrumb,
     render_concept,
     render_chapter_header,
     render_navigation_help,
@@ -452,18 +453,13 @@ def interactive_concepts(
     while True:
         # Clear screen for clean display
         clear_screen()
-        print_banner()
-        render_chapter_header(chapter_meta, console)
-
-        # Show chapter progress bar
-        chapter_progress = get_chapter_progress(chapter_num)
-        time_remaining = estimate_chapter_time_remaining(
-            chapter_num, content_counts, chapter_progress["current_section"]
-        )
-        render_chapter_progress(
-            chapter_progress["current_section"],
-            time_remaining,
-            console,
+        render_compact_breadcrumb(
+            chapter_num=chapter_num,
+            chapter_title=chapter_meta.get("title", ""),
+            section="Concepts",
+            current=current_index + 1,
+            total=total,
+            console=console,
         )
 
         # Render current concept (1-based for display)
@@ -477,6 +473,10 @@ def interactive_concepts(
 
         # Get user input
         user_input = get_user_input()
+
+        if user_input in ("b", "back", "m", "menu"):
+            save_progress(chapter_num, current_index)
+            return "quit"
 
         if user_input == "n":
             if current_index < total - 1:
@@ -625,21 +625,14 @@ def interactive_practice(
 
     while True:
         clear_screen()
-        print_banner()
-        render_chapter_header(chapter_meta, console)
-
-        # Show chapter progress bar
-        chapter_progress = get_chapter_progress(chapter_num)
-        time_remaining = estimate_chapter_time_remaining(
-            chapter_num, content_counts, chapter_progress["current_section"]
+        render_compact_breadcrumb(
+            chapter_num=chapter_num,
+            chapter_title=chapter_meta.get("title", ""),
+            section="Practice",
+            current=current_index + 1,
+            total=total,
+            console=console,
         )
-        render_chapter_progress(
-            chapter_progress["current_section"],
-            time_remaining,
-            console,
-        )
-
-        console.print("[info]Command Practice[/info]\n")
 
         practice = practices[current_index]
         render_command_practice(practice, current_index + 1, total, console)
@@ -662,7 +655,7 @@ def interactive_practice(
         user_command = get_command_input()
 
         # Handle special inputs
-        if user_command.lower() in ("q", "quit", "exit"):
+        if user_command.lower() in ("q", "quit", "exit", "b", "back"):
             console.print(f"\n[info]Progress: {len(completed)}/{total} practices completed.[/info]")
             return "quit"
 
@@ -682,8 +675,13 @@ def interactive_practice(
                 current_index -= 1
             continue
 
-        if not user_command:
-            continue  # Empty input, redraw
+        if not user_command or user_command.lower() in ("c", "run"):
+            hint = practice.get("command_hint", "")
+            if hint:
+                user_command = hint
+                console.print(f"[dim]Auto-running: $ {user_command}[/dim]")
+            else:
+                continue
 
         if user_command == "?":
             # Ask AI a question about the current practice
@@ -928,21 +926,14 @@ def interactive_scenarios(
 
     while current_index < total:
         clear_screen()
-        print_banner()
-        render_chapter_header(chapter_meta, console)
-
-        # Show chapter progress bar
-        chapter_progress = get_chapter_progress(chapter_num)
-        time_remaining = estimate_chapter_time_remaining(
-            chapter_num, content_counts, chapter_progress["current_section"]
+        render_compact_breadcrumb(
+            chapter_num=chapter_num,
+            chapter_title=chapter_meta.get("title", ""),
+            section="Scenarios",
+            current=current_index + 1,
+            total=total,
+            console=console,
         )
-        render_chapter_progress(
-            chapter_progress["current_section"],
-            time_remaining,
-            console,
-        )
-
-        console.print("[info]Debugging Scenarios[/info]\n")
 
         scenario = scenarios[current_index]
 
@@ -1012,11 +1003,69 @@ def interactive_scenarios(
 
             # Show command prompt
             console.print()
-            console.print("[hint]Enter command to investigate (or use navigation keys):[/hint]")
+            console.print("[hint]Enter command, [e]dit file, [r]eset, [d]iff, [v]erify:[/hint]")
             user_input = get_command_input()
 
-            # Handle navigation keys
-            if user_input.lower() in ("q", "quit"):
+            # Handle navigation and editor keys
+            if user_input.lower() in ("e", "edit"):
+                if engine.current_context and engine.current_context.workflow_path:
+                    console.print(f"[info]Opening {engine.current_context.workflow_path.name} in editor...[/info]")
+                    time.sleep(0.3)
+                    engine.open_in_editor()
+                    console.print("\n[info]Editor closed. Auto-validating solution...[/info]")
+                    result = engine.validate_solution()
+                    if result.success:
+                        points = engine.calculate_score()
+                        render_scenario_result(
+                            success=True,
+                            message="You fixed it!",
+                            points=scenario.get("points", 0),
+                            hints_used=hints_used,
+                            hint_penalty=scenario.get("hint_penalty", 5),
+                            console=console,
+                        )
+                        completed.add(current_index)
+                        total_points += points
+                        engine.cleanup()
+                        save_scenario_state(
+                            chapter=chapter_num,
+                            current_index=current_index + 1,
+                            completed=completed,
+                            total_points=total_points,
+                        )
+                        console.print("\n[hint]Press Enter to continue...[/hint]")
+                        input()
+                        current_index += 1
+                        break
+                    else:
+                        render_scenario_result(
+                            success=False,
+                            message=result.message or "Workflow still has syntax issues or unmet requirements.",
+                            console=console,
+                        )
+                        console.print("[hint]Press [e] to re-open editor, or [d] to see current diff.[/hint]")
+                else:
+                    console.print("[warning]No workflow file found for this scenario.[/warning]")
+                continue
+
+            if user_input.lower() in ("r", "reset"):
+                if engine.reset_workflow():
+                    console.print("[success]✓ Workflow reset back to initial scenario template.[/success]")
+                else:
+                    console.print("[warning]Could not reset workflow template.[/warning]")
+                continue
+
+            if user_input.lower() in ("d", "diff"):
+                diff_text = engine.get_diff()
+                if diff_text:
+                    console.print("\n[bold]Current Changes vs Starter Template:[/bold]")
+                    from rich.syntax import Syntax
+                    console.print(Syntax(diff_text, "diff", theme="monokai"))
+                else:
+                    console.print("[dim]No changes made yet compared to starting template.[/dim]")
+                continue
+
+            if user_input.lower() in ("q", "quit", "b", "back"):
                 # Save state before quitting
                 save_scenario_state(
                     chapter=chapter_num,
@@ -1230,22 +1279,14 @@ def interactive_quiz(
 
     while not engine.is_complete():
         clear_screen()
-        print_banner()
-        render_chapter_header(chapter_meta, console)
-
-        # Show chapter progress bar
-        chapter_progress = get_chapter_progress(chapter_num)
-        time_remaining = estimate_chapter_time_remaining(
-            chapter_num, content_counts, chapter_progress["current_section"]
+        render_compact_breadcrumb(
+            chapter_num=chapter_num,
+            chapter_title=chapter_meta.get("title", ""),
+            section="Quiz",
+            current=engine.current_index + 1,
+            total=total_questions,
+            console=console,
         )
-        render_chapter_progress(
-            chapter_progress["current_section"],
-            time_remaining,
-            console,
-        )
-
-        # Show quiz header
-        render_quiz_header(passing_score, total_questions, console)
 
         # Get current question
         question = engine.get_current_question()
@@ -1284,7 +1325,7 @@ def interactive_quiz(
         answer = input("> ").strip()
 
         # Handle special inputs
-        if answer.lower() in ("q", "quit", "exit"):
+        if answer.lower() in ("q", "quit", "exit", "b", "back"):
             # Save state before quitting
             state = engine.get_state_for_persistence()
             save_quiz_state(

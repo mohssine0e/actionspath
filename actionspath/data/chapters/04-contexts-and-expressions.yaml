@@ -196,3 +196,12 @@ quiz:
         - "prefix()"
       correct: "startsWith()"
       points: 10
+
+    - type: "fill_yaml"
+      question: "Fill in the missing context property to read the Git commit SHA:"
+      yaml_template: |
+        - name: Print Commit Hash
+          run: echo "Commit is ${{ github.<BLANK> }}"
+      expected: "sha"
+      explanation: "github.sha resolves to the full 40-character commit hash triggering the workflow run."
+      points: 10

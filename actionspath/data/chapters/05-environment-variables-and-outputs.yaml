@@ -224,3 +224,12 @@ quiz:
       correct: "An 'id:' attribute on the producing step"
       explanation: "Without an 'id:' attribute, the steps context cannot index the producing step."
       points: 10
+
+    - type: "fill_yaml"
+      question: "Fill in the runner environment variable file used to persist values across steps:"
+      yaml_template: |
+        - name: Save Version
+          run: echo "APP_VER=1.0.0" >> "$<BLANK>"
+      expected: "GITHUB_ENV"
+      explanation: "Appending KEY=val to $GITHUB_ENV persists it for all subsequent steps in the same job."
+      points: 10

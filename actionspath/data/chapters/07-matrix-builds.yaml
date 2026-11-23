@@ -222,3 +222,13 @@ quiz:
       correct: "include"
       explanation: "The 'include' block matches existing combinations to inject additional keys or creates novel combinations."
       points: 10
+
+    - type: "fill_yaml"
+      question: "Fill in the missing key that defines variable dimensions under strategy:"
+      yaml_template: |
+        strategy:
+          <BLANK>:
+            os: [ubuntu-latest, macos-latest]
+      expected: "matrix"
+      explanation: "The 'matrix' key defines the variable lists whose combinations run in parallel."
+      points: 10

@@ -203,3 +203,15 @@ quiz:
       correct: "At the job level (using 'uses:' instead of 'steps:')"
       explanation: "Reusable workflows define entire jobs and are invoked with 'uses: owner/repo/path@ref' directly under the job key."
       points: 10
+
+    - type: "fill_yaml"
+      question: "Fill in the trigger keyword required to make a workflow reusable:"
+      yaml_template: |
+        on:
+          <BLANK>:
+            inputs:
+              node-version:
+                type: string
+      expected: "workflow_call"
+      explanation: "The 'workflow_call' trigger enables a workflow to be invoked by other workflows."
+      points: 10

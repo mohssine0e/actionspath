@@ -180,6 +180,18 @@ quiz:
       correct: false
       points: 10
 
+    - type: "fill_yaml"
+      question: "Fill in the missing keyword that defines which machine environment executes the job:"
+      yaml_template: |
+        jobs:
+          build:
+            <BLANK>: ubuntu-latest
+            steps:
+              - run: echo "Building"
+      expected: "runs-on"
+      explanation: "The 'runs-on' key specifies the runner operating system (e.g. ubuntu-latest)."
+      points: 10
+
     - type: "multiple_choice"
       question: "Which keyword defines the operating system virtual machine that executes a job?"
       options:

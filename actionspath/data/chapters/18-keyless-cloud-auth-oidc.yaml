@@ -200,3 +200,12 @@ quiz:
       correct: "sub (subject)"
       explanation: "The 'sub' claim contains the unique string 'repo:<owner>/<repo>:ref:refs/heads/<branch>'."
       points: 10
+
+    - type: "fill_yaml"
+      question: "Fill in the permission required to issue OIDC identity tokens to cloud providers:"
+      yaml_template: |
+        permissions:
+          <BLANK>: write
+      expected: "id-token"
+      explanation: "The 'id-token: write' permission authorizes the runner to request an OIDC JWT token."
+      points: 10

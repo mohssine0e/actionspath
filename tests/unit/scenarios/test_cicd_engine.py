@@ -41,7 +41,10 @@ def test_scenario_engine_lifecycle():
         val_res = engine.validate_solution()
         assert val_res.success is False
 
-        # 4. Fix workflow
+        # 4. Check diff before fix (should be empty)
+        assert engine.get_diff() == ""
+
+        # 5. Fix workflow
         fixed_content = """name: CI
 on: [push]
 jobs:
@@ -52,16 +55,27 @@ jobs:
 """
         wm.write_workflow(engine.current_context.workspace_path, "ci.yml", fixed_content)
 
-        # 5. Validation after fix
+        # 6. Check diff after edit
+        diff = engine.get_diff()
+        assert "on: [push]" in diff
+
+        # 7. Test reset workflow
+        assert engine.reset_workflow() is True
+        wf_path = engine.current_context.workflow_path
+        assert "on: [push]" not in wf_path.read_text(encoding="utf-8")
+        assert engine.get_diff() == ""
+
+        # 8. Re-apply fix for validation
+        wm.write_workflow(engine.current_context.workspace_path, "ci.yml", fixed_content)
         val_res2 = engine.validate_solution()
         assert val_res2.success is True
         assert engine.is_completed is True
 
-        # 6. Score calculation
+        # 9. Score calculation
         score = engine.calculate_score()
         assert score == 50
 
-        # 7. Cleanup
+        # 10. Cleanup
         ws_path = engine.current_context.workspace_path
         engine.cleanup()
         assert not ws_path.exists()

@@ -7,18 +7,18 @@ from typing import Any
 
 # Level definitions: 12 levels from beginner to master
 LEVELS: list[dict[str, Any]] = [
-    {"level": 1, "name": "Pod Seedling", "min_score": 0},
-    {"level": 2, "name": "Container Cadet", "min_score": 100},
-    {"level": 3, "name": "Namespace Navigator", "min_score": 300},
-    {"level": 4, "name": "Deployment Apprentice", "min_score": 600},
-    {"level": 5, "name": "Service Scout", "min_score": 1000},
-    {"level": 6, "name": "ConfigMap Crafter", "min_score": 1500},
-    {"level": 7, "name": "Secret Keeper", "min_score": 2100},
-    {"level": 8, "name": "Volume Voyager", "min_score": 2800},
-    {"level": 9, "name": "Cluster Captain", "min_score": 3600},
-    {"level": 10, "name": "Helm Hero", "min_score": 4500},
-    {"level": 11, "name": "CKAD Champion", "min_score": 5500},
-    {"level": 12, "name": "Kubernetes Kurator", "min_score": 6600},
+    {"level": 1, "name": "Workflow Rookie", "min_score": 0},
+    {"level": 2, "name": "Action Apprentice", "min_score": 100},
+    {"level": 3, "name": "Syntax Scout", "min_score": 300},
+    {"level": 4, "name": "Runner Ranger", "min_score": 600},
+    {"level": 5, "name": "Matrix Master", "min_score": 1000},
+    {"level": 6, "name": "Artifact Artisan", "min_score": 1500},
+    {"level": 7, "name": "Secrets Sentinel", "min_score": 2100},
+    {"level": 8, "name": "OIDC Officer", "min_score": 2800},
+    {"level": 9, "name": "Composite Crafter", "min_score": 3600},
+    {"level": 10, "name": "Pipeline Pioneer", "min_score": 4500},
+    {"level": 11, "name": "Delivery Director", "min_score": 5500},
+    {"level": 12, "name": "Actions Architect", "min_score": 6600},
 ]
 
 MAX_LEVEL = 12

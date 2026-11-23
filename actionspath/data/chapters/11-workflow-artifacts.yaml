@@ -217,3 +217,15 @@ quiz:
       correct: "It downloads all artifacts from the workflow run into separate subdirectories"
       explanation: "Omitting the name parameter causes download-artifact to fetch all workflow artifacts."
       points: 10
+
+    - type: "fill_yaml"
+      question: "Fill in the action name used to upload files to GitHub artifact storage:"
+      yaml_template: |
+        - name: Save Artifact
+          uses: actions/<BLANK>@v4
+          with:
+            name: dist-files
+            path: dist/
+      expected: "upload-artifact"
+      explanation: "actions/upload-artifact archives and uploads files from the runner to GitHub storage."
+      points: 10

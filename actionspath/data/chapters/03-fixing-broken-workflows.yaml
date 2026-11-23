@@ -133,3 +133,13 @@ quiz:
         - "dockle"
       correct: "actionlint"
       points: 10
+
+    - type: "fill_yaml"
+      question: "Fill in the missing keyword to execute a shell command inside a step:"
+      yaml_template: |
+        steps:
+          - name: Say Hello
+            <BLANK>: echo "Hello World"
+      expected: "run"
+      explanation: "The 'run' keyword executes command-line programs using the runner's operating system shell."
+      points: 10

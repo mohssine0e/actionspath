@@ -398,6 +398,65 @@ class ScenarioEngine:
                 entry.get("command", ""), result, duration_ms=0
             )
 
+    def open_in_editor(self, editor: Optional[str] = None) -> bool:
+        """Launch an external editor on the scenario workflow file."""
+        if not self.current_context or not self.current_context.workflow_path:
+            return False
+        import os
+        import shutil
+        import subprocess
+
+        ed = editor or os.environ.get("EDITOR") or os.environ.get("VISUAL")
+        if not ed:
+            for candidate in ("nano", "vim", "vi", "code"):
+                if shutil.which(candidate):
+                    ed = candidate
+                    break
+        if not ed:
+            ed = "nano"
+        try:
+            subprocess.run([ed, str(self.current_context.workflow_path)], check=False)
+            return True
+        except Exception:
+            return False
+
+    def reset_workflow(self) -> bool:
+        """Reset the scenario workflow file back to its starting manifest."""
+        if not self.current_context or not self.current_context.workflow_path:
+            return False
+        try:
+            self.current_context.workflow_path.write_text(
+                self.current_context.manifest, encoding="utf-8"
+            )
+            return True
+        except Exception:
+            return False
+
+    def get_diff(self) -> str:
+        """Get unified diff between starting manifest and current workflow file."""
+        if (
+            not self.current_context
+            or not self.current_context.workflow_path
+            or not self.current_context.workflow_path.is_file()
+        ):
+            return ""
+        import difflib
+
+        try:
+            current_content = self.current_context.workflow_path.read_text(encoding="utf-8")
+        except Exception:
+            return ""
+
+        original_lines = self.current_context.manifest.splitlines(keepends=True)
+        current_lines = current_content.splitlines(keepends=True)
+        diff = difflib.unified_diff(
+            original_lines,
+            current_lines,
+            fromfile="original/ci.yml",
+            tofile="current/ci.yml",
+        )
+        return "".join(diff)
+
 
 def create_scenario_engine(
     enable_ai: bool = True,
