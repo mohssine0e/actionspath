@@ -1,0 +1,226 @@
+chapter:
+  number: 5
+  title: "Environment Variables & Outputs"
+  description: "Master env scopes (workflow, job, step), dynamic variables via $GITHUB_ENV, and passing step outputs via $GITHUB_OUTPUT."
+
+concepts:
+  - title: "Environment Variable Scopes"
+    content: |
+      Environment variables (`env`) configure tools, flags, and scripts across your workflows without hardcoding sensitive or changing values.
+
+      **The Company Policy Analogy**
+
+      Think of environment variables as company policy rules:
+      - **Workflow-level:** Company-wide policy applicable to every employee in every department.
+      - **Job-level:** Department policy applicable only to the engineering department.
+      - **Step-level:** A sticky note on your personal desk overriding everything else for one task.
+
+      ```
+      ┌────────────────────────────────────────────────────────┐
+      │ Workflow level: env: REGION: us-east-1                  │
+      │                                                        │
+      │  ┌──────────────────────────────────────────────────┐  │
+      │  │ Job: build (inherits REGION: us-east-1)          │  │
+      │  │      env: NODE_ENV: production                   │  │
+      │  │                                                  │  │
+      │  │   ┌───────────────────────────────────────────┐  │  │
+      │  │   │ Step: Compile                             │  │  │
+      │  │   │       env: REGION: eu-west-1 (overrides)  │  │  │
+      │  │   └───────────────────────────────────────────┘  │  │
+      │  └──────────────────────────────────────────────────┘  │
+      └────────────────────────────────────────────────────────┘
+      ```
+
+      **Accessing Variables:**
+      1. Inside shell commands: Use standard shell syntax `$NODE_ENV` or `${NODE_ENV}`.
+      2. Inside GitHub Actions expressions: Use `${{ env.NODE_ENV }}`.
+
+      **Key insight:** Step-level environment variables override job-level variables, which override workflow-level variables.
+    key_points:
+      - "Variables defined at workflow level apply to all jobs and steps"
+      - "Step-level env overrides identical job- and workflow-level variables"
+      - "Access variables via shell $VAR or Actions expression ${{ env.VAR }}"
+
+  - title: "Dynamic Variables with $GITHUB_ENV"
+    content: |
+      Each step in a GitHub Actions job runs in an independent shell subprocess. Running `export MY_VAR="value"` will **not** persist to subsequent steps!
+
+      **The Shared Ledger Analogy**
+
+      If you write notes on your personal scrap paper, the next worker on the shift cannot see them. To share state, you write into the company's shared ledger file.
+
+      `$GITHUB_ENV` is a file path pointing to a temporary file managed by the runner:
+
+      ```bash
+      # WRONG: Disappears when this step ends
+      export BUILD_DATE=$(date +%Y-%m-%d)
+
+      # CORRECT: Persists to all subsequent steps in this job
+      echo "BUILD_DATE=$(date +%Y-%m-%d)" >> "$GITHUB_ENV"
+      ```
+
+      ```yaml
+      - name: Calculate Dynamic Version
+        run: echo "APP_VERSION=v$(cat version.txt)" >> "$GITHUB_ENV"
+
+      - name: Use Dynamic Version
+        run: echo "Deploying version $APP_VERSION"
+      ```
+
+      **Rule:** `$GITHUB_ENV` only shares variables with **subsequent** steps in the **same job**, not previous steps or parallel jobs.
+
+      **Key insight:** Always append key-value pairs into `"$GITHUB_ENV"` using standard redirect `>>` syntax.
+    key_points:
+      - "Plain 'export' does not persist across steps because each step runs in a new subshell"
+      - "Append variables using: echo 'KEY=value' >> $GITHUB_ENV"
+      - "Variables written to $GITHUB_ENV are accessible in all subsequent steps of the same job"
+
+  - title: "Step Outputs and $GITHUB_OUTPUT"
+    content: |
+      While `$GITHUB_ENV` sets environment variables, **Step Outputs** allow explicit, structured values to be returned by a step and referenced cleanly or exported to other jobs.
+
+      **The Relay Baton Analogy**
+
+      In a 4x100m relay, Runner 1 hands an official baton directly to Runner 2. The baton has an explicit identity.
+
+      To create an output, append `name=value` to `"$GITHUB_OUTPUT"` and assign an `id` to the step:
+
+      ```yaml
+      - name: Compute Artifact Hash
+        id: hasher
+        run: |
+          HASH=$(sha256sum app.tar.gz | cut -d ' ' -f 1)
+          echo "checksum=$HASH" >> "$GITHUB_OUTPUT"
+
+      - name: Report Hash
+        run: echo "The checksum was ${{ steps.hasher.outputs.checksum }}"
+      ```
+
+      **Passing Outputs Between Jobs:**
+      To share an output with a downstream job, map it in the job's `outputs:` definition:
+
+      ```yaml
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          outputs:
+            build_hash: ${{ steps.hasher.outputs.checksum }}
+          steps:
+            - id: hasher
+              run: echo "checksum=abcd123" >> "$GITHUB_OUTPUT"
+
+        deploy:
+          needs: build
+          runs-on: ubuntu-latest
+          steps:
+            - run: echo "Deploying hash ${{ needs.build.outputs.build_hash }}"
+      ```
+
+      **Key insight:** Step outputs require a step `id` to be referenced via `${{ steps.<id>.outputs.<name> }}`.
+    key_points:
+      - "Steps define outputs by appending 'key=value' to $GITHUB_OUTPUT"
+      - "The producing step MUST have an 'id' attribute to be referenced"
+      - "Jobs can expose step outputs as job outputs using the top-level 'outputs:' block"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Write Variable to Mock Environment"
+    instructions: |
+      **What we're doing:** Append a variable key-value pair to a simulated environment file.
+
+      **Why this matters:** In GitHub Actions runners, writing `KEY=value` to `"$GITHUB_ENV"` is how dynamic values are passed forward.
+
+      **The command pattern:**
+      ```
+      echo "ENV_DEMO=active" >> /tmp/test_env
+      ```
+
+      Run this command:
+    command_hint: "echo 'ENV_DEMO=active' >> /tmp/test_env"
+    validation:
+      type: "command_output"
+      command: "echo 'ENV_DEMO=active' >> /tmp/test_env && cat /tmp/test_env"
+      expected_contains: "ENV_DEMO=active"
+    points: 10
+
+scenarios:
+  - id: "fix-missing-step-id"
+    title: "Fix Missing Step ID for Output Reference"
+    description: |
+      The workflow tries to read `${{ steps.versioner.outputs.release_ver }}` in step 2, but step 1 is missing the required `id: versioner` attribute!
+      Edit `.github/workflows/ci.yml` and add `id: versioner` to the first step so the output can be referenced.
+    manifest: |
+      name: Release Pipeline
+      on: [push]
+      jobs:
+        version:
+          runs-on: ubuntu-latest
+          steps:
+            - name: Determine Version
+              run: echo "release_ver=1.4.0" >> "$GITHUB_OUTPUT"
+            - name: Publish Release
+              run: echo "Publishing ${{ steps.versioner.outputs.release_ver }}"
+    hints:
+      - "Step outputs require an 'id:' field on the producing step."
+      - "Add 'id: versioner' directly under '- name: Determine Version'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "migrate-deprecated-set-output"
+    title: "Replace Deprecated set-output Syntax"
+    description: |
+      Older GitHub Actions workflows used the deprecated `::set-output` workflow command, which was removed due to security vulnerabilities.
+      Update `.github/workflows/ci.yml` to replace:
+      `echo "::set-output name=status::success"`
+      with modern syntax:
+      `echo "status=success" >> "$GITHUB_OUTPUT"`
+    manifest: |
+      name: Legacy Migration
+      on: [push]
+      jobs:
+        healthcheck:
+          runs-on: ubuntu-latest
+          steps:
+            - id: check
+              run: echo "::set-output name=status::success"
+            - name: Verify
+              run: echo "Status was ${{ steps.check.outputs.status }}"
+    hints:
+      - "Replace the old echo string with modern $GITHUB_OUTPUT redirection."
+      - "Use: echo \"status=success\" >> \"$GITHUB_OUTPUT\""
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "Which file do you write to in order to persist environment variables across subsequent steps?"
+      options:
+        - "$GITHUB_ENV"
+        - "$GITHUB_OUTPUT"
+        - "$GITHUB_PATH"
+        - "$GITHUB_STATE"
+      correct: "$GITHUB_ENV"
+      explanation: "$GITHUB_ENV is runner-managed; appending KEY=val persists it as an environment variable for all subsequent steps in that job."
+      points: 10
+
+    - type: "true_false"
+      question: "Running 'export MY_VAR=val' in a step makes MY_VAR available in subsequent steps."
+      correct: false
+      explanation: "Each step executes in an isolated shell subshell. Plain environment exports are discarded when the step finishes."
+      points: 10
+
+    - type: "multiple_choice"
+      question: "What is required on a step in order to reference its outputs in another step via ${{ steps.<id>.outputs.<name> }}?"
+      options:
+        - "An 'id:' attribute on the producing step"
+        - "A 'name:' attribute on the producing step"
+        - "An 'export: true' flag"
+        - "A 'needs:' dependency"
+      correct: "An 'id:' attribute on the producing step"
+      explanation: "Without an 'id:' attribute, the steps context cannot index the producing step."
+      points: 10
