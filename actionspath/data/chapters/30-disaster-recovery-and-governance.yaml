@@ -1,0 +1,186 @@
+chapter:
+  number: 30
+  title: "Disaster Recovery, Governance & Mastery"
+  description: "Implement automated disaster recovery workflows, autoscaling runner infrastructure with ARC, enterprise repository rulesets, and graduate to CI/CD mastery."
+
+concepts:
+  - title: "Automated Disaster Recovery (DR) Workflows"
+    content: |
+      Outages will happen: cloud data centers lose power, fiber cables get cut, and bad updates slip through. Elite engineering organizations prepare automated **Disaster Recovery (DR)** workflows.
+
+      **The Automated Fire Sprinkler Analogy**
+
+      When a fire breaks out in a commercial kitchen, you do not call an executive board meeting to debate water usage. The heat sensors trigger the ceiling fire sprinklers immediately and automatically.
+      A Disaster Recovery workflow is pre-tested and ready to execute multi-region failover or immediate production rollbacks with a single click or webhook alert.
+
+      ```
+      ┌────────────────────────────────────────────────────────┐
+      │ EMERGENCY TRIGGER (workflow_dispatch or Alert Webhook) │
+      │  Input: target_region: "us-west-2", action: "failover" │
+      └──────────────────────────┬─────────────────────────────┘
+                                 │
+                 ┌───────────────┴───────────────┐
+                 ▼                               ▼
+      ┌─────────────────────┐         ┌─────────────────────┐
+      │ STEP 1: ROUTING     │         │ STEP 2: NOTIFY      │
+      │ Update Cloudflare / │         │ Page on-call team   │
+      │ Route53 DNS target  │         │ & alert war room    │
+      └─────────────────────┘         └─────────────────────┘
+      ```
+
+      **Key insight:** Manual `workflow_dispatch` triggers with explicit parameters allow on-call engineers to execute complex recovery runbooks safely under pressure.
+    key_points:
+      - "Disaster Recovery workflows automate multi-region failover and rollbacks"
+      - "Use workflow_dispatch with typed inputs for human-governed emergency runbooks"
+      - "Regularly drill and test DR workflows to ensure emergency runbooks work"
+
+  - title: "Enterprise Governance & Repository Rulesets"
+    content: |
+      As organizations scale to hundreds of engineers, manual code review policies cannot prevent human errors. GitHub **Repository Rulesets** enforce guardrails at the organization level.
+
+      **Key Governance Pillars:**
+      1. **Push Protection for Secrets:** Blocks developers from running `git push` if code contains recognized API keys or tokens.
+      2. **Organization Rulesets:** Enforces required status checks and linear history across hundreds of repositories simultaneously.
+      3. **Required Workflows:** Mandatory compliance, license, and security scans injected automatically into every repository without individual repo opt-in.
+
+      ```yaml
+      # Emergency Manual Rollback Workflow
+      name: Disaster Recovery Runbook
+      on:
+        workflow_dispatch:
+          inputs:
+            environment:
+              description: 'Target Environment to Recover'
+              required: true
+              type: choice
+              options:
+                - production
+                - staging
+            rollback_version:
+              description: 'Known Good Release Tag (e.g. v2.4.1)'
+              required: true
+              type: string
+      ```
+
+      **Key insight:** Centralized rulesets guarantee that compliance and security gates cannot be disabled or bypassed by individual project teams.
+    key_points:
+      - "Repository Rulesets enforce security standards across whole organizations"
+      - "Push protection blocks leaked credentials before commits reach the server"
+      - "Mandatory workflows guarantee security scanning across every repository"
+
+  - title: "Runner Autoscaling with ARC (Actions Runner Controller)"
+    content: |
+      Large enterprises running thousands of daily builds cannot rely on fixed runner fleets. **Actions Runner Controller (ARC)** is a Kubernetes operator that scales self-hosted runners dynamically.
+
+      **How ARC Scales:**
+      1. ARC listens to GitHub runner queue webhooks.
+      2. As jobs queue up, ARC spins up ephemeral runner Kubernetes pods in seconds (scaling from 0 to 500 pods).
+      3. Each pod executes exactly one job and immediately terminates, guaranteeing 100% clean state.
+      4. At night, idle capacity scales to zero, cutting cloud compute costs by up to 70%.
+
+      **Your Journey to Mastery:**
+      You began with basic workflow YAML syntax, advanced through execution DAGs, matrix automation, containerized services, OIDC cloud security, custom action development, and progressive delivery. You now possess the complete toolkit to architect world-class enterprise CI/CD systems!
+
+      **Key insight:** Ephemeral Kubernetes runners combined with rigorous pipeline automation provide the ultimate foundation for scalable, secure enterprise engineering.
+    key_points:
+      - "Actions Runner Controller (ARC) autoscales runner pods on Kubernetes"
+      - "Ephemeral pods terminate after each job, eliminating state contamination"
+      - "Scales capacity to zero during off-peak hours to minimize cloud costs"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Inspect ActionsPath Mastery Milestone"
+    instructions: |
+      **What we're doing:** Run the ActionsPath CLI version command to celebrate completing the 30-chapter curriculum.
+
+      **Why this matters:** You have completed the full curriculum from absolute beginner to enterprise CI/CD mastery!
+
+      **The command pattern:**
+      ```
+      actionspath --help
+      ```
+
+      Run this command:
+    command_hint: "actionspath --help"
+    validation:
+      type: "command_output"
+      command: "actionspath --help || true"
+      expected_contains: "actionspath"
+    points: 10
+
+scenarios:
+  - id: "configure-workflow-dispatch-runbook"
+    title: "Configure Emergency Rollback Dispatch Trigger"
+    description: |
+      Create a manual disaster recovery trigger in `.github/workflows/ci.yml` using `workflow_dispatch:` with an input parameter for `target_version`.
+    manifest: |
+      name: Emergency Runbook
+      on:
+        workflow_dispatch:
+          inputs:
+            target_version:
+              description: 'Version tag to restore'
+              required: true
+              type: string
+      jobs:
+        rollback:
+          runs-on: ubuntu-latest
+          steps:
+            - run: echo "Restoring version ${{ inputs.target_version }}..."
+    hints:
+      - "Use 'on: workflow_dispatch:' with typed inputs."
+      - "Reference input with '${{ inputs.target_version }}'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "enforce-production-governance"
+    title: "Enforce Production Deployment Governance"
+    description: |
+      Update `.github/workflows/ci.yml` to attach the `production` environment and concurrency lock `group: production-deploy` with `cancel-in-progress: false` to ensure disaster recovery runbooks execute safely.
+    manifest: |
+      name: Production Recovery
+      on: [workflow_dispatch]
+      jobs:
+        restore:
+          runs-on: ubuntu-latest
+          steps:
+            - run: echo "Safely restoring infrastructure..."
+    hints:
+      - "Add 'environment: production' under 'restore:'."
+      - "Add 'concurrency: group: production-deploy' with 'cancel-in-progress: false'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "Which trigger allows on-call engineers to manually run emergency runbooks with custom input parameters?"
+      options:
+        - "workflow_dispatch"
+        - "push"
+        - "pull_request"
+        - "schedule"
+      correct: "workflow_dispatch"
+      explanation: "workflow_dispatch enables manual UI/API triggering with typed form input parameters."
+      points: 10
+
+    - type: "true_false"
+      question: "Actions Runner Controller (ARC) spins up ephemeral Kubernetes pods that terminate immediately after completing a single job."
+      correct: true
+      explanation: "ARC creates single-use ephemeral pods that self-destruct upon completion to guarantee pristine isolation."
+      points: 10
+
+    - type: "multiple_choice"
+      question: "What security feature blocks developers from running 'git push' if their commit contains plaintext API keys or credentials?"
+      options:
+        - "Push Protection for Secrets"
+        - "Dependabot"
+        - "CodeQL Autobuild"
+        - "GitHub Pages"
+      correct: "Push Protection for Secrets"
+      explanation: "GitHub Secret Scanning Push Protection intercepts pushes containing recognized secrets and rejects them before commit arrival."
+      points: 10

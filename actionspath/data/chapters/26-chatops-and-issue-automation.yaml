@@ -1,0 +1,208 @@
+chapter:
+  number: 26
+  title: "ChatOps & Issue Bot Automation"
+  description: "Automate repository operations from PR comments using issue_comment events, slash commands (/deploy, /test), and Slack/Discord webhook alerts."
+
+concepts:
+  - title: "What is ChatOps? Conversation-Driven Operations"
+    content: |
+      Rather than logging into internal cloud consoles or terminal bastions, modern engineering teams operate through **ChatOps**: triggering operational workflows directly from PR comments, Slack, or Discord.
+
+      **The Walkie-Talkie Command Analogy**
+
+      In an airport control tower, staff don't walk down to the runway tarmac to switch gate assignments. They speak a standardized code into the shared walkie-talkie channel: *"Gate 14 clear for flight 402"*. Every team member hears the command, and the action executes with total transparency.
+
+      ```
+      ┌────────────────────────────────────────────────────────┐
+      │ DEVELOPER COMMENTS ON PULL REQUEST                     │
+      │  "Looks good! /deploy staging"                         │
+      └──────────────────────────┬─────────────────────────────┘
+                                 │ Triggers on: issue_comment
+                                 ▼
+      ┌────────────────────────────────────────────────────────┐
+      │ CHATOPS WORKFLOW                                       │
+      │                                                        │
+      │  1. Check: Is it a pull request?                       │
+      │  2. Security: Is author OWNER or MEMBER?               │
+      │  3. Parse command: '/deploy <target>'                  │
+      │  4. React with 🚀 emoji on the comment                 │
+      │  5. Deploy and post result back as comment             │
+      └────────────────────────────────────────────────────────┘
+      ```
+
+      **Key insight:** ChatOps maintains an auditable, transparent log of who executed operations, when, and with what parameters directly inside the PR timeline.
+    key_points:
+      - "ChatOps triggers automated operations from conversations and PR comments"
+      - "Workflows use the 'issue_comment' event with type 'created'"
+      - "Provides transparent, auditable operational records visible to the team"
+
+  - title: "Slash Commands & Comment Filtering"
+    content: |
+      GitHub represents both issues and pull requests under the `issue_comment` event. A ChatOps workflow must verify:
+      1. That the comment occurred on a Pull Request (not an issue).
+      2. That the comment text begins with the desired slash command.
+
+      ```yaml
+      name: ChatOps Dispatcher
+      on:
+        issue_comment:
+          types: [created]
+
+      jobs:
+        deploy:
+          # Verify comment is on a PR and begins with /deploy
+          if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/deploy')
+          runs-on: ubuntu-latest
+          steps:
+            - name: Acknowledge Command with Rocket
+              uses: actions/github-script@v7
+              with:
+                script: |
+                  await github.rest.reactions.createForIssueComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: context.payload.comment.id,
+                    content: 'rocket'
+                  });
+      ```
+
+      **Key insight:** Always inspect `github.event.issue.pull_request` to ensure regular issue comments don't trigger PR deployment logic.
+    key_points:
+      - "Check 'github.event.issue.pull_request' to filter strictly for PRs"
+      - "Use startsWith(github.event.comment.body, '/cmd') to match slash commands"
+      - "React with emojis (rocket, eyes) to provide immediate user feedback"
+
+  - title: "Security Authorization & Notifications"
+    content: |
+      **Critical Security Risk:** Anyone with a GitHub account can comment on a public repository!
+      If your workflow executes `/deploy` without checking permissions, an external attacker can deploy rogue code or consume your cloud infrastructure.
+
+      **Checking Author Association:**
+      ```yaml
+      if: |
+        github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/deploy') &&
+        (github.event.comment.author_association == 'OWNER' ||
+         github.event.comment.author_association == 'MEMBER')
+      ```
+
+      **Slack/Discord Notification Webhooks:**
+      Post operational results to team chat rooms using webhooks:
+      ```yaml
+      - name: Alert Slack
+        if: always()
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "Deployment triggered by ${{ github.actor }}: ${{ job.status }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+      ```
+
+      **Key insight:** Never execute ChatOps commands without validating that the author is an authorized repository member or owner.
+    key_points:
+      - "Verify author_association is 'MEMBER' or 'OWNER' before executing commands"
+      - "Prevent untrusted external contributors from triggering operational pipelines"
+      - "Broadcast start and finish statuses to Slack or Discord webhooks"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Inspect Webhook Payload Formatting"
+    instructions: |
+      **What we're doing:** Inspect JSON formatting for webhook alerts.
+
+      **Why this matters:** Slack and Discord integrations send JSON payloads to incoming webhook URLs.
+
+      **The command pattern:**
+      ```
+      echo '{"text": "CI Status: Success"}'
+      ```
+
+      Run this command:
+    command_hint: "echo '{\"text\": \"CI Status: Success\"}'"
+    validation:
+      type: "command_output"
+      command: "echo '{\"text\": \"CI Status: Success\"}'"
+      expected_contains: "CI Status"
+    points: 10
+
+scenarios:
+  - id: "filter-pr-only-comments"
+    title: "Restrict Comment Trigger Strictly to PRs"
+    description: |
+      The workflow currently fires on every issue comment.
+      Edit `.github/workflows/ci.yml` so the job condition checks:
+      `if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/test')`
+    manifest: |
+      name: PR Bot
+      on:
+        issue_comment:
+          types: [created]
+      jobs:
+        test:
+          runs-on: ubuntu-latest
+          steps:
+            - run: echo "Running requested test..."
+    hints:
+      - "Add 'if:' under the 'test:' job header."
+      - "Check both 'github.event.issue.pull_request' and 'startsWith(github.event.comment.body, \\'/test\\')'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "enforce-chatops-rbac"
+    title: "Enforce Member Authorization on /deploy Command"
+    description: |
+      Add an authorization guard to prevent external non-members from running `/deploy`.
+      Update the job's `if:` expression to require:
+      `(github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'MEMBER')`
+    manifest: |
+      name: ChatOps Deploy
+      on:
+        issue_comment:
+          types: [created]
+      jobs:
+        deploy:
+          if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/deploy')
+          runs-on: ubuntu-latest
+          steps:
+            - run: echo "Deploying..."
+    hints:
+      - "Append '&& (github.event.comment.author_association == \\'OWNER\\' || github.event.comment.author_association == \\'MEMBER\\')' to the condition."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "Which event trigger is used to react to comments posted on pull requests and issues?"
+      options:
+        - "issue_comment"
+        - "pull_request_comment"
+        - "comment_created"
+        - "discussion_comment"
+      correct: "issue_comment"
+      explanation: "GitHub Actions routes both issue and pull request comments through the 'issue_comment' event."
+      points: 10
+
+    - type: "true_false"
+      question: "Anyone who comments on a public repository can trigger a ChatOps job unless author_association is verified."
+      correct: true
+      explanation: "Without checking author_association, any external user could post a comment and trigger execution."
+      points: 10
+
+    - type: "multiple_choice"
+      question: "How do you distinguish whether an issue_comment event occurred on a PR versus a regular issue?"
+      options:
+        - "Check if 'github.event.issue.pull_request' is present (truthy)"
+        - "Inspect github.event_name == 'pr_comment'"
+        - "Check if github.ref is 'refs/pull/*'"
+        - "Check github.actor_id"
+      correct: "Check if 'github.event.issue.pull_request' is present (truthy)"
+      explanation: "The payload object 'github.event.issue.pull_request' only exists when the comment belongs to a pull request."
+      points: 10

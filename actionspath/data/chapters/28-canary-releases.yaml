@@ -1,0 +1,181 @@
+chapter:
+  number: 28
+  title: "Canary Releases & Progressive Delivery"
+  description: "Roll out features safely using traffic shifting (10% -> 50% -> 100%), automated telemetry verification, and automated rollbacks on error budget spikes."
+
+concepts:
+  - title: "The Coal Mine Canary Analogy"
+    content: |
+      While Blue-Green switches 100% of users all at once, **Canary Releases** route a tiny slice of live user traffic to the new version to detect hidden bugs before exposing the entire customer base.
+
+      **The Coal Mine Analogy**
+
+      In early mining, miners carried a caged canary bird deep underground. Canaries are biologically more sensitive to toxic odorless carbon monoxide than humans. If the canary fainted, miners evacuated immediately before any human was harmed.
+      A canary deployment exposes only 5% of users. If a critical bug lurks in the code, 95% of users remain completely protected.
+
+      ```
+      STAGE 1: 10% CANARY
+      Production Traffic ──► [ Traffic Router ] ──┬──► [ 90% Traffic: Stable v1.0 ]
+                                                  └──► [ 10% Traffic: Canary v1.1 ]
+                                                                │
+                                                        Evaluate APM Metrics
+                                                                ▼
+      STAGE 2: PROMOTION (If error rate < 0.1%)
+      Production Traffic ──► [ Traffic Router ] ──────► [ 100% Traffic: Stable v1.1 ]
+      ```
+
+      **Key insight:** Canary deployments limit the blast radius of unforeseen bugs to an acceptable fraction of your user base.
+    key_points:
+      - "Canary releases shift a small percentage (5-10%) of production traffic to new code"
+      - "Limits the blast radius of production bugs"
+      - "Monitors live telemetry (5xx error rates, p95 latency) during observation windows"
+
+  - title: "Progressive Traffic Shifting in Workflows"
+    content: |
+      A progressive delivery workflow orchestrates traffic increments with intermediate validation gates:
+
+      ```yaml
+      jobs:
+        canary-rollout:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+
+            # Step 1: Route 10% traffic to canary
+            - name: Set Canary Traffic to 10%
+              run: ./traffic-router.sh --canary-weight 10
+
+            # Step 2: Observation window
+            - name: Wait for Metric Accumulation (5 minutes)
+              run: sleep 300
+
+            # Step 3: Query APM metrics (Datadog / Prometheus / CloudWatch)
+            - name: Evaluate Canary Error Rate
+              run: ./check-metrics.sh --max-error-rate 0.005
+
+            # Step 4: Promote to 100% full rollout
+            - name: Promote Canary to 100% Traffic
+              run: ./traffic-router.sh --canary-weight 100
+      ```
+
+      **Key insight:** Staging the release into discrete checkpoints prevents small defects from escalating into full outages.
+    key_points:
+      - "Stage traffic incrementally: e.g. 10% -> 50% -> 100%"
+      - "Enforce observation delays so monitoring tools collect sufficient statistical data"
+      - "Promote to full production only after metrics confirm stability"
+
+  - title: "Automated Metric Gating & Rollback"
+    content: |
+      The power of progressive delivery lies in automated decision making. If the error rate threshold is breached, the workflow must abort and reset traffic instantly without waiting for a human on-call engineer.
+
+      ```yaml
+      - name: Emergency Canary Teardown
+        if: failure()
+        run: |
+          echo "Canary threshold breached! Resetting traffic to 0%..."
+          ./traffic-router.sh --canary-weight 0
+      ```
+
+      **Error Budgets:**
+      If your Service Level Objective (SLO) allows 99.9% availability, your error budget is 0.1%. A canary exceeding this budget triggers an immediate rollback.
+
+      **Key insight:** Automated metric gating eliminates human reaction delay when bad builds reach production.
+    key_points:
+      - "Query APM APIs directly inside CI/CD steps to evaluate error budgets"
+      - "Use 'if: failure()' to instantly drop canary traffic back to 0%"
+      - "Automated rollbacks happen in seconds, protecting user trust"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Inspect Traffic Weight Flag Syntax"
+    instructions: |
+      **What we're doing:** Inspect traffic percentage parameter patterns.
+
+      **Why this matters:** Routing proxies (Envoy, Traefik, AWS ALB) accept percentage weights.
+
+      **The command pattern:**
+      ```
+      echo "--weight-canary 10 --weight-stable 90"
+      ```
+
+      Run this command:
+    command_hint: "echo \"--weight-canary 10 --weight-stable 90\""
+    validation:
+      type: "command_output"
+      command: "echo '--weight-canary 10 --weight-stable 90'"
+      expected_contains: "weight-canary"
+    points: 10
+
+scenarios:
+  - id: "insert-metric-evaluation-gate"
+    title: "Insert Telemetry Metric Evaluation Step"
+    description: |
+      The pipeline increases traffic from 10% directly to 100% without verifying error metrics!
+      Insert a metric check step `./check-error-rate.sh` between the 10% shift and the 100% promotion in `.github/workflows/ci.yml`.
+    manifest: |
+      name: Progressive Rollout
+      on: [push]
+      jobs:
+        canary:
+          runs-on: ubuntu-latest
+          steps:
+            - run: ./set-weight.sh 10
+            - run: ./set-weight.sh 100
+    hints:
+      - "Add '- run: ./check-error-rate.sh' between the two steps."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "add-canary-zero-traffic-rollback"
+    title: "Configure Emergency Traffic Reset on Failure"
+    description: |
+      Add an automated failure handler step `if: failure()` that resets canary traffic to zero: `./set-weight.sh 0`.
+    manifest: |
+      name: Resilient Canary
+      on: [push]
+      jobs:
+        deploy:
+          runs-on: ubuntu-latest
+          steps:
+            - run: ./set-weight.sh 10
+            - run: ./check-error-rate.sh
+            - run: ./set-weight.sh 100
+    hints:
+      - "Add a final step with 'if: failure()'."
+      - "Set 'run: ./set-weight.sh 0'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "What is the primary objective of a Canary Release?"
+      options:
+        - "Exposing a small percentage of live users to new code to limit the blast radius of bugs"
+        - "Deploying code exclusively to local developers' laptops"
+        - "Running unit tests faster"
+        - "Encrypting database backups"
+      correct: "Exposing a small percentage of live users to new code to limit the blast radius of bugs"
+      explanation: "Canaries limit the impact of defects by testing new code on a small fraction of real production traffic."
+      points: 10
+
+    - type: "true_false"
+      question: "In automated canary rollouts, traffic should immediately drop to 0% if error thresholds are exceeded."
+      correct: true
+      explanation: "Automated rollback resets canary traffic to 0% to prevent further impact on users."
+      points: 10
+
+    - type: "multiple_choice"
+      question: "What metric is most commonly evaluated during canary observation periods?"
+      options:
+        - "HTTP 5xx error rate and p95/p99 latency"
+        - "Git commit length"
+        - "Lines of YAML in workflow"
+        - "Number of closed GitHub issues"
+      correct: "HTTP 5xx error rate and p95/p99 latency"
+      explanation: "Server error rates and response latency are the prime indicators of system health and regression."
+      points: 10
