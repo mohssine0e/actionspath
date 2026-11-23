@@ -34,10 +34,10 @@ class TestContentRendering:
         result = output.getvalue()
 
         # Should contain chapter info
-        assert "What is Kubernetes?" in result
+        assert "Workflow Anatomy" in result
 
         # Should contain at least some concept content
-        assert "Kubernetes" in result
+        assert "GitHub Actions" in result or "Workflow" in result
 
     def test_rendered_output_is_readable(self):
         """Test that rendered output doesn't have obvious formatting issues."""

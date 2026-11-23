@@ -28,7 +28,7 @@ except ImportError:
 
 import yaml
 
-from actionspath.k8s.validator import validate_from_spec
+from actionspath.cicd.validator import validate_from_spec
 
 # Timing constants (optimized for KUBEPATH_PLAIN + KUBEPATH_NO_CLEAR mode)
 # With plain mode + no-clear, we don't need to wait for Rich TUI animations

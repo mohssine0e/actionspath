@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime
 
 from actionspath.scenarios.history import CommandHistory, CommandRecord
-from actionspath.k8s.validator import ValidationResult
+from actionspath.cicd.validator import ValidationResult
 
 
 class TestCommandRecord:

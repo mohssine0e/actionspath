@@ -8,17 +8,17 @@ class TestCLICommands:
     """Integration tests that run actual CLI commands."""
 
     def test_kubepath_help(self):
-        """Test that kubepath --help runs successfully."""
+        """Test that actionspath --help runs successfully."""
         result = subprocess.run(
             [sys.executable, "-m", "actionspath.cli", "--help"],
             capture_output=True,
             text=True,
         )
         assert result.returncode == 0
-        assert "kubepath" in result.stdout.lower()
+        assert "actionspath" in result.stdout.lower()
 
     def test_kubepath_start_chapter_1_quit(self):
-        """Test that kubepath start 1 runs and accepts quit command."""
+        """Test that actionspath start 1 runs and accepts quit command."""
         result = subprocess.run(
             [sys.executable, "-m", "actionspath.cli", "start", "1"],
             capture_output=True,
@@ -29,7 +29,7 @@ class TestCLICommands:
         )
         assert result.returncode == 0
         # Check for chapter content being displayed or theory mode skip messages
-        assert "Kubernetes" in result.stdout or "Theory mode" in result.stdout
+        assert "workflow" in result.stdout.lower() or "theory mode" in result.stdout.lower()
 
     def test_kubepath_start_navigation(self):
         """Test navigating through concepts."""

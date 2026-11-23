@@ -4,8 +4,8 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from actionspath.scenarios.cleanup import CleanupManager
-from actionspath.k8s.deployer import DeployedResource
-from actionspath.k8s.validator import ValidationResult
+from actionspath.cicd.workspace import DeployedResource
+from actionspath.cicd.validator import ValidationResult
 
 
 class TestCleanupManager:
@@ -137,14 +137,7 @@ class TestCleanupManager:
     def test_force_cleanup(self):
         """Test force cleanup option."""
         manager = CleanupManager()
-        manager.register([DeployedResource(kind="Pod", name="pod-1")])
-
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "deleted"
-
-        with patch("subprocess.run", return_value=mock_result) as mock_run:
-            manager.cleanup(force=True)
-            # Check force flag was passed
-            call_args = mock_run.call_args[0][0]
-            assert "--force" in call_args
+        manager.register([DeployedResource(kind="workflow", name="ci.yml")])
+        result = manager.cleanup(force=True)
+        assert result is True
+        assert manager._cleaned_up is True

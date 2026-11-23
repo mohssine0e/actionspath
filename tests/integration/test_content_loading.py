@@ -14,7 +14,7 @@ class TestContentLoading:
 
         # Check chapter metadata
         assert chapter["chapter"]["number"] == 1
-        assert chapter["chapter"]["title"] == "What is Kubernetes?"
+        assert chapter["chapter"]["title"] == "Workflow Anatomy"
         assert "description" in chapter["chapter"]
 
         # Check concepts exist
@@ -31,17 +31,17 @@ class TestContentLoading:
             assert len(concept["title"]) > 0
             assert len(concept["content"]) > 0
 
-    def test_chapter_1_has_kubernetes_content(self):
-        """Test that chapter 1 actually teaches Kubernetes."""
+    def test_chapter_1_has_actions_content(self):
+        """Test that chapter 1 teaches GitHub Actions."""
         chapter = load_chapter(1)
 
         # Collect all content
         all_content = " ".join(c["content"] for c in chapter["concepts"])
         all_content_lower = all_content.lower()
 
-        # Should mention Kubernetes concepts
-        assert "kubernetes" in all_content_lower
-        assert "pod" in all_content_lower or "container" in all_content_lower
+        # Should mention GitHub Actions concepts
+        assert "github actions" in all_content_lower or "workflow" in all_content_lower
+        assert "trigger" in all_content_lower or "runner" in all_content_lower
 
     def test_nonexistent_chapter_raises_error(self):
         """Test that loading a nonexistent chapter raises error."""

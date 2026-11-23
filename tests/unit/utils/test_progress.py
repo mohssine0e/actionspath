@@ -22,7 +22,7 @@ class TestGetProgressDir:
         """Test that progress dir is in user's home."""
         result = get_progress_dir()
         assert result.parent == Path.home()
-        assert result.name == ".kubepath"
+        assert result.name == ".actionspath"
 
 
 class TestLoadProgress:
