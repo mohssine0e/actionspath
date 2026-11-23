@@ -1,0 +1,219 @@
+chapter:
+  number: 11
+  title: "Workflow Artifacts & Cross-Job Data"
+  description: "Upload and download build artifacts (binaries, test reports, tarballs) across jobs using actions/upload-artifact and actions/download-artifact."
+
+concepts:
+  - title: "Ephemeral Runners vs Persistent Artifacts"
+    content: |
+      In GitHub Actions, each job runs on an isolated, ephemeral runner VM. Once a job finishes, its hard drive is immediately formatted and destroyed.
+
+      **The Safe Deposit Box Analogy**
+
+      Imagine a chef (Job 1) baking a gourmet cake in a kitchen that will be demolished at the end of the shift. If the chef leaves the cake on the kitchen table, the delivery driver (Job 2) arriving at the next kitchen has nothing to deliver!
+      The chef must put the cake in a climate-controlled bank safe deposit box (GitHub Artifact storage) so the driver can retrieve it.
+
+      ```
+      ┌──────────────────┐           ┌────────────────────────┐           ┌──────────────────┐
+      │  JOB 1: BUILD    │           │ GITHUB ARTIFACT STORE  │           │  JOB 2: DEPLOY   │
+      │                  │           │                        │           │                  │
+      │ 1. Compile app   │           │                        │           │ 1. Download      │
+      │ 2. upload-artifact ─────────►│  [ app-binary.tar.gz ] ├──────────►│    artifact      │
+      │                  │           │                        │           │ 2. Deploy to S3  │
+      │ Runner destroyed!│           │ (Retained 1 - 90 days) │           │                  │
+      └──────────────────┘           └────────────────────────┘           └──────────────────┘
+      ```
+
+      **What are Artifacts?**
+      - Compiled binaries, Docker tarballs, or web assets (`dist/`, `build/`).
+      - Test coverage reports, screenshots, and logs.
+      - Any files needed by subsequent jobs or for human download in the GitHub UI.
+
+      **Key insight:** Artifacts are the only mechanism for moving files and binaries between independent workflow jobs.
+    key_points:
+      - "Runners are destroyed when jobs end; local files do not survive"
+      - "Artifacts persist files in GitHub cloud storage for 1 to 90 days"
+      - "Artifacts allow downstream jobs to consume outputs built by upstream jobs"
+
+  - title: "Uploading Artifacts with `actions/upload-artifact@v4`"
+    content: |
+      Use `actions/upload-artifact@v4` to bundle and upload files from the current runner workspace into GitHub storage.
+
+      **Standard Upload Configuration:**
+      ```yaml
+      - name: Build Web Application
+        run: npm run build
+
+      - name: Save Production Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-dist
+          path: dist/
+          retention-days: 7
+          if-no-files-found: error
+      ```
+
+      **Important Parameters:**
+      - `name`: Unique name identifier for the artifact archive.
+      - `path`: File, directory, or wildcard pattern (`dist/**`, `target/*.jar`).
+      - `retention-days`: Lifetime of artifact (default is 90 days; set shorter to save storage).
+      - `if-no-files-found`: Action on missing path (`warn`, `error`, or `ignore`).
+
+      **Key insight:** `actions/upload-artifact@v4` provides blazing-fast parallel blob uploads; artifact names must be unique within a workflow run.
+    key_points:
+      - "Use 'name:' to give the artifact bundle a distinctive identifier"
+      - "Use 'path:' to point to single files, directories, or wildcards"
+      - "Configure 'retention-days:' to prevent exceeding repository storage limits"
+
+  - title: "Downloading Artifacts in Downstream Jobs"
+    content: |
+      To consume an artifact in a subsequent job, that job must declare a `needs:` relationship on the producer job and call `actions/download-artifact@v4`.
+
+      ```yaml
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - run: mkdir dist && echo "v1.0.0" > dist/bundle.js
+            - uses: actions/upload-artifact@v4
+              with:
+                name: app-dist
+                path: dist/
+
+        deploy:
+          needs: build
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: app-dist
+                path: release/
+            - run: cat release/bundle.js
+      ```
+
+      **Rule:** If you omit the `name:` parameter in `download-artifact`, GitHub downloads **all** artifacts from the workflow into separate subdirectories.
+
+      **Key insight:** Downstream jobs must declare `needs:` on the producer job so the runner waits until the artifact has finished uploading.
+    key_points:
+      - "Consumer jobs must declare 'needs: <producer_job>' before downloading"
+      - "Use 'name:' to download a specific artifact bundle"
+      - "Omitting 'name:' downloads all artifacts into matching folders"
+
+command_practice:
+  - id: "cmd-01"
+    title: "Inspect Directory Contents for Packaging"
+    instructions: |
+      **What we're doing:** Inspect the current files ready for artifact archiving.
+
+      **Why this matters:** In CI pipelines, you verify output folders before calling `upload-artifact`.
+
+      **The command pattern:**
+      ```
+      ls -la
+      ```
+
+      Run this command:
+    command_hint: "ls -la"
+    validation:
+      type: "command_output"
+      command: "ls -la"
+      expected_contains: "pyproject.toml"
+    points: 10
+
+scenarios:
+  - id: "fix-missing-needs-on-download"
+    title: "Add Missing Needs Dependency for Artifact Download"
+    description: |
+      The `deploy` job attempts to download the `dist-files` artifact created by `build`, but fails because it runs in parallel with `build` instead of waiting for it!
+      Edit `.github/workflows/ci.yml` and add `needs: build` to the `deploy` job.
+    manifest: |
+      name: Release Pipeline
+      on: [push]
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - run: mkdir dist && echo "binary" > dist/app
+            - uses: actions/upload-artifact@v4
+              with:
+                name: dist-files
+                path: dist/
+        deploy:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: dist-files
+            - run: echo "Deploying..."
+    hints:
+      - "Jobs run in parallel by default. Downstream consumer jobs must declare 'needs:'."
+      - "Add 'needs: build' directly under 'deploy:'."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+  - id: "fix-artifact-name-mismatch"
+    title: "Fix Artifact Name Mismatch"
+    description: |
+      The upload step named the artifact `web-bundle`, but the download step asks for `frontend-bundle`, causing a 404 error!
+      Edit `.github/workflows/ci.yml` and synchronize the name in the download step to match `web-bundle`.
+    manifest: |
+      name: Web App
+      on: [push]
+      jobs:
+        build:
+          runs-on: ubuntu-latest
+          steps:
+            - run: mkdir dist && echo "OK" > dist/index.html
+            - uses: actions/upload-artifact@v4
+              with:
+                name: web-bundle
+                path: dist/
+        deploy:
+          needs: build
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/download-artifact@v4
+              with:
+                name: frontend-bundle
+            - run: echo "Deployed"
+    hints:
+      - "The 'name:' parameter in download-artifact must match the upload-artifact name exactly."
+      - "Change 'frontend-bundle' to 'web-bundle' in the download step."
+    solution_validation:
+      type: "workflow"
+      file: ".github/workflows/ci.yml"
+    points: 25
+
+quiz:
+  questions:
+    - type: "multiple_choice"
+      question: "Why can't a downstream job read files written to disk by an upstream job without upload-artifact?"
+      options:
+        - "Each job runs on an isolated runner VM whose disk is wiped immediately upon job finish"
+        - "Linux file permissions prevent reading files across different user accounts"
+        - "GitHub automatically encrypts local workspace directories after each step"
+        - "Downstream jobs run in chroot jails"
+      correct: "Each job runs on an isolated runner VM whose disk is wiped immediately upon job finish"
+      explanation: "GitHub Actions runners are ephemeral. Files written in one job do not exist on the runner allocated for the next job."
+      points: 10
+
+    - type: "true_false"
+      question: "If a job downloads an artifact from another job, it must declare a 'needs:' dependency on that job."
+      correct: true
+      explanation: "Without 'needs:', jobs execute concurrently and the download step will attempt to fetch an artifact before it is uploaded."
+      points: 10
+
+    - type: "multiple_choice"
+      question: "What happens if you omit the 'name:' property when using actions/download-artifact@v4?"
+      options:
+        - "It downloads all artifacts from the workflow run into separate subdirectories"
+        - "The action throws a validation error"
+        - "It only downloads the first uploaded artifact"
+        - "It downloads files into /tmp by default"
+      correct: "It downloads all artifacts from the workflow run into separate subdirectories"
+      explanation: "Omitting the name parameter causes download-artifact to fetch all workflow artifacts."
+      points: 10
