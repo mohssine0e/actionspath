@@ -79,10 +79,15 @@ concepts:
     - `pull_request`: Triggered when a PR is opened, synchronized, or reopened.
     - `workflow_dispatch`: Adds a manual 'Run workflow' button in GitHub's web UI.
     - `schedule`: Runs on a cron schedule (e.g. nightly builds).
+
+    **⚠️ Production Gotcha (Duplicate Runs Trap):**
+    If you define `on: [push, pull_request]` without branch filters, pushing a commit to an open pull request inside the same repository triggers **two simultaneous workflow runs** (one for `push`, one for `pull_request`). This cuts your concurrency in half and doubles your runner billing!
+    *Senior Fix:* Scope `push` strictly to your main branch (`push: branches: [main]`) and `pull_request` to your target branch (`pull_request: branches: [main]`).
   key_points:
   - "The 'on' field specifies event triggers"
   - "Supports arrays of events or detailed filters with branches"
   - "'workflow_dispatch' enables manual triggering"
+  - "Gotcha: on: [push, pull_request] without branch scoping causes duplicate workflow runs"
 
 - title: "Jobs, Runners, and Steps"
   content: |

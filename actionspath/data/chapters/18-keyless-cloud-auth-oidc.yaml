@@ -82,11 +82,17 @@ concepts:
     **Cloud Trust Policy:**
     Your cloud provider (e.g. AWS IAM Role Trust Policy) configures an assertion matching the `sub` claim. If an attacker runs the workflow in a different repo, the cloud provider rejects the token!
 
+    **⚠️ Production Gotcha (The Permissions Wipeout Trap):**
+    By default, GitHub grants permissive repository token permissions. However, as soon as you declare ANY key under `permissions:` (e.g. `permissions: id-token: write`), all unmentioned permissions are immediately set to `none`!
+    As a result, subsequent steps like `actions/checkout@v4` will crash with `fatal: could not read Username: terminal prompts disabled` unless you also explicitly declare `contents: read`.
+    *Senior Fix:* Whenever adding `permissions: id-token: write`, always explicitly pair it with `contents: read`.
+
     **Key insight:** The `sub` claim guarantees that only your exact repository and branch can assume the cloud IAM role.
   key_points:
   - "Workflows require 'permissions: id-token: write' to issue OIDC tokens"
   - "The token carries cryptographically signed claims including repo and branch"
   - "Cloud trust policies restrict access to exact repository subjects"
+  - "Gotcha: Defining any permission sets unspecified scopes to none; always include contents: read"
 
 - title: "Real-World OIDC: AWS & GCP"
   content: |

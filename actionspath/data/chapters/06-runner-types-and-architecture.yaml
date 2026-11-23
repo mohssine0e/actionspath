@@ -32,11 +32,26 @@ concepts:
     └────────────────────────────────────────────────────────┘
     ```
 
+    **⚠️ Production Gotcha (The 14 GB Disk Exhaustion / ENOSPC Trap):**
+    GitHub-hosted `ubuntu-latest` runners provide a 75 GB virtual drive, but over 60 GB is pre-occupied by pre-installed SDKs (.NET, Android, Haskell, PHP, Java). This leaves only ~14 GB of usable free disk space.
+    Building large Docker images, Android apps, or compiling C++/Rust monorepos routinely fails midway with `Error: No space left on device` (ENOSPC).
+    *Senior Fix:* Add a high-speed disk reclaim pre-step before your build to free up 30+ GB in under 15 seconds:
+    ```yaml
+    - name: Free Disk Space
+      run: |
+        sudo rm -rf /usr/share/dotnet
+        sudo rm -rf /usr/local/lib/android
+        sudo rm -rf /opt/ghc
+        sudo rm -rf /usr/local/share/boost
+        df -h
+    ```
+
     **Key insight:** Use GitHub-hosted runners for standard workloads and public repositories; use self-hosted runners only when you require internal network access or specialized hardware.
   key_points:
   - "GitHub-hosted runners provide clean, ephemeral, pre-configured VMs"
   - "Self-hosted runners run on your own servers, VPCs, or Kubernetes clusters"
   - "Never attach self-hosted runners to public repos due to untrusted fork PR risks"
+  - "Gotcha: Ubuntu runners only have ~14 GB free disk; wipe .NET/Android dirs to reclaim 30+ GB"
 
 - title: "The `runs-on:` Directive and Standard Labels"
   content: |

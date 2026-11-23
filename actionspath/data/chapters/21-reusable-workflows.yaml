@@ -90,10 +90,21 @@ concepts:
         secrets: inherit   # Automatically passes all caller secrets
     ```
 
+    **⚠️ Production Gotcha (Environment Secrets & Reusable Workflows):**
+    `secrets: inherit` forwards repository and organization secrets. However, if your called workflow requires **Environment Secrets** (e.g. credentials scoped to `production`), they will be completely empty unless the caller job explicitly declares the `environment:` keyword:
+    ```yaml
+    jobs:
+      deploy:
+        environment: production   # Required to inherit environment-scoped secrets!
+        uses: acme/workflows/.github/workflows/deploy.yml@v1
+        secrets: inherit
+    ```
+
     **Key insight:** `secrets: inherit` dramatically simplifies caller workflows by forwarding all authorized repository and organization secrets in one statement.
   key_points:
   - "Define strongly-typed inputs under 'workflow_call.inputs'"
   - "Use 'secrets: inherit' to pass caller secrets without verbose mappings"
+  - "Gotcha: Environment-scoped secrets require caller jobs to declare the environment: key"
   - "Input types include string, boolean, and number"
 
 - title: "Returning Outputs from Called Workflows"

@@ -60,11 +60,16 @@ concepts:
     - `retention-days`: Lifetime of artifact (default is 90 days; set shorter to save storage).
     - `if-no-files-found`: Action on missing path (`warn`, `error`, or `ignore`).
 
+    **⚠️ Production Gotcha (Artifact Immutability in @v4):**
+    In `actions/upload-artifact@v3`, uploading to an existing artifact name quietly merged or appended files. In `@v4`, artifacts are strictly **immutable**: attempting to upload an artifact with the same name twice in one workflow run causes an instant fatal failure.
+    *Senior Fix:* Never upload identical artifact names from parallel matrix runs or re-run steps. Use dynamic naming like `name: app-build-${{ github.job }}-${{ github.run_attempt }}` or matrix namespaces.
+
     **Key insight:** `actions/upload-artifact@v4` provides blazing-fast parallel blob uploads; artifact names must be unique within a workflow run.
   key_points:
   - "Use 'name:' to give the artifact bundle a distinctive identifier"
   - "Use 'path:' to point to single files, directories, or wildcards"
   - "Configure 'retention-days:' to prevent exceeding repository storage limits"
+  - "Gotcha: upload-artifact@v4 artifacts are immutable; re-uploading to the same name fails the build"
 
 - title: "Downloading Artifacts in Downstream Jobs"
   content: |

@@ -93,11 +93,23 @@ concepts:
 
     **Rule:** Never nest `${{ }}` inside another `${{ }}` block. Inside the expression brackets, variables are referenced bare.
 
+    **⚠️ Production Gotcha (The YAML 1.1 "Norway Problem"):**
+    GitHub Actions workflow files are parsed using the YAML 1.1 specification. In YAML 1.1, unquoted `NO` (the ISO 3166-1 country code for Norway), `no`, `yes`, `y`, `n`, `on`, and `off` evaluate to **booleans** (`true` or `false`), not strings!
+    If you write:
+    ```yaml
+    env:
+      COUNTRY: NO              # Parsed as COUNTRY: false!
+    # Or in branch filters:
+    branches: [NO, SE, DK]     # Parsed as [false, "SE", "DK"]!
+    ```
+    *Senior Fix:* Always wrap country codes and boolean-like words in explicit quotes (`'NO'`, `'yes'`, `'off'`).
+
     **Key insight:** Expressions let you conditionally control step execution and dynamically calculate environment variables.
   key_points:
   - "Built-in functions include contains(), startsWith(), endsWith(), and format()"
   - "Use && and || to construct inline ternary expressions"
   - "Do NOT nest ${{ }} tags inside another expression block"
+  - "Gotcha: YAML 1.1 evaluates unquoted 'NO' (Norway), 'yes', 'on' as booleans; always quote them"
 
 command_practice:
 - id: "cmd-01"

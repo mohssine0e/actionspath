@@ -70,13 +70,24 @@ concepts:
 
     **Rule:** `$GITHUB_ENV` only shares variables with **subsequent** steps in the **same job**, not previous steps or parallel jobs.
 
+    **⚠️ Production Gotcha (Multiline Values & Delimiter Injection):**
+    Single-line `echo "KEY=val" >> "$GITHUB_ENV"` fails or truncates if `val` contains newlines (such as multiline changelogs, SSH private keys, or JSON payloads).
+    GitHub Actions requires heredoc delimiter syntax for multiline values:
+    ```bash
+    # Secure multiline syntax with randomized delimiter
+    DELIMITER=$(openssl rand -hex 8)
+    echo "CHANGELOG<<$DELIMITER" >> "$GITHUB_ENV"
+    cat release-notes.md >> "$GITHUB_ENV"
+    echo "$DELIMITER" >> "$GITHUB_ENV"
+    ```
+    *Senior Fix:* Always use a randomized delimiter token instead of static `EOF` to prevent malicious untrusted content from prematurely terminating the delimiter and injecting arbitrary environment variables.
+
     **Key insight:** Always append key-value pairs into `"$GITHUB_ENV"` using standard redirect `>>` syntax.
   key_points:
-  - "Plain 'export' does not persist across steps because each step runs in a new
-    subshell"
+  - "Plain 'export' does not persist across steps because each step runs in a new subshell"
   - "Append variables using: echo 'KEY=value' >> $GITHUB_ENV"
-  - "Variables written to $GITHUB_ENV are accessible in all subsequent steps of the
-    same job"
+  - "Gotcha: Multiline values in GITHUB_ENV require delimiter syntax (KEY<<EOF ... EOF)"
+  - "Variables written to $GITHUB_ENV are accessible in all subsequent steps of the same job"
 
 - title: "Step Outputs and $GITHUB_OUTPUT"
   content: |

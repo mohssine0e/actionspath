@@ -49,11 +49,22 @@ concepts:
           - run: npm test
     ```
 
+    **⚠️ Production Gotcha (Matrix Artifact Immutability Collision):**
+    If jobs inside a matrix run `actions/upload-artifact@v4` with a hardcoded static artifact name (e.g. `name: dist-output`), all parallel jobs after the first will crash with `Artifact failed to upload: an artifact with this name already exists`! In `@v4`, artifact names are strictly immutable within a run.
+    *Senior Fix:* Always namespace the artifact name using matrix dimensions:
+    ```yaml
+    - uses: actions/upload-artifact@v4
+      with:
+        name: dist-${{ matrix.os }}-node${{ matrix.node }}
+        path: dist/
+    ```
+
     **Key insight:** The matrix strategy calculates the Cartesian product of all defined dimensions and runs each variant as an independent job.
   key_points:
   - "A matrix strategy generates parallel job combinations from lists of variables"
   - "Access combination variables using the ${{ matrix.<variable> }} context"
   - "Total generated jobs equals the product of each variable dimension's length"
+  - "Gotcha: upload-artifact@v4 is immutable; matrix jobs must namespace artifact names with ${{ matrix.* }}"
 
   diagram:
     type: pipeline_dag
