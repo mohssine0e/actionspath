@@ -1,233 +1,257 @@
 chapter:
   number: 14
   title: "Monorepos & Path Filtering"
-  description: "Optimize monorepo CI pipelines by running tests and deployments only when specific directories change using paths, paths-ignore, and dorny/paths-filter."
+  description: "Optimize monorepo CI pipelines by running tests and deployments only
+    when specific directories change using paths, paths-ignore, and dorny/paths-filter."
 
 concepts:
-  - title: "The Monorepo Challenge"
-    content: |
-      In a monorepo containing multiple microservices, libraries, and documentation, running the entire test suite on every single commit creates massive queues and wasted runner minutes.
+- title: "The Monorepo Challenge"
+  content: |
+    In a monorepo containing multiple microservices, libraries, and documentation, running the entire test suite on every single commit creates massive queues and wasted runner minutes.
 
-      **The Apartment Complex Analogy**
+    **The Apartment Complex Analogy**
 
-      In an apartment building with 50 units, the mail carrier does not ring all 50 doorbells when delivering a package addressed only to Apartment 3B. Only Resident 3B is alerted.
+    In an apartment building with 50 units, the mail carrier does not ring all 50 doorbells when delivering a package addressed only to Apartment 3B. Only Resident 3B is alerted.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │ MONOREPO COMMIT CHANGES                                │
-      │  Modified: services/payment/src/checkout.ts            │
-      └──────────────────────────┬─────────────────────────────┘
-                                 │
-                 ┌───────────────┴───────────────┐
-                 ▼                               ▼
-      ┌─────────────────────┐         ┌─────────────────────┐
-      │ WORKFLOW: PAYMENT   │         │ WORKFLOW: AUTH      │
-      │ paths:              │         │ paths:              │
-      │  - 'services/pay/**'│         │  - 'services/auth/**'│
-      │                     │         │                     │
-      │  Status: TRIGGERED  │         │  Status: SKIPPED    │
-      └─────────────────────┘         └─────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │ MONOREPO COMMIT CHANGES                                │
+    │  Modified: services/payment/src/checkout.ts            │
+    └──────────────────────────┬─────────────────────────────┘
+                               │
+               ┌───────────────┴───────────────┐
+               ▼                               ▼
+    ┌─────────────────────┐         ┌─────────────────────┐
+    │ WORKFLOW: PAYMENT   │         │ WORKFLOW: AUTH      │
+    │ paths:              │         │ paths:              │
+    │  - 'services/pay/**'│         │  - 'services/auth/**'│
+    │                     │         │                     │
+    │  Status: TRIGGERED  │         │  Status: SKIPPED    │
+    └─────────────────────┘         └─────────────────────┘
+    ```
 
-      **Trigger-Level Path Filters:**
-      ```yaml
-      on:
-        push:
-          paths:
-            - 'services/payment/**'
-            - 'shared/utils/**'
-          paths-ignore:
-            - '**.md'
-            - 'docs/**'
-      ```
+    **Trigger-Level Path Filters:**
+    ```yaml
+    on:
+      push:
+        paths:
+          - 'services/payment/**'
+          - 'shared/utils/**'
+        paths-ignore:
+          - '**.md'
+          - 'docs/**'
+    ```
 
-      **Key insight:** Path filters evaluate against the Git commit diff; if no changed files match `paths:`, GitHub skips the workflow entirely.
-    key_points:
-      - "Path filters prevent workflows from running when unrelated files change"
-      - "paths: triggers on matching file globs"
-      - "paths-ignore: excludes specific paths (e.g. markdown docs or README files)"
+    **Key insight:** Path filters evaluate against the Git commit diff; if no changed files match `paths:`, GitHub skips the workflow entirely.
+  key_points:
+  - "Path filters prevent workflows from running when unrelated files change"
+  - "paths: triggers on matching file globs"
+  - "paths-ignore: excludes specific paths (e.g. markdown docs or README files)"
 
-  - title: "Job-Level Filtering with `dorny/paths-filter`"
-    content: |
-      Trigger-level `paths:` works when each service has its own workflow file. But if you have a single unified workflow, you need **job-level conditional execution**.
+- title: "Job-Level Filtering with `dorny/paths-filter`"
+  content: |
+    Trigger-level `paths:` works when each service has its own workflow file. But if you have a single unified workflow, you need **job-level conditional execution**.
 
-      **The Changes Filter Pattern:**
-      ```yaml
-      jobs:
-        changes:
-          runs-on: ubuntu-latest
-          outputs:
-            frontend: ${{ steps.filter.outputs.frontend }}
-            backend: ${{ steps.filter.outputs.backend }}
-          steps:
-            - uses: actions/checkout@v4
-            - uses: dorny/paths-filter@v3
-              id: filter
-              with:
-                filters: |
-                  frontend:
-                    - 'frontend/**'
-                  backend:
-                    - 'backend/**'
+    **The Changes Filter Pattern:**
+    ```yaml
+    jobs:
+      changes:
+        runs-on: ubuntu-latest
+        outputs:
+          frontend: ${{ steps.filter.outputs.frontend }}
+          backend: ${{ steps.filter.outputs.backend }}
+        steps:
+          - uses: actions/checkout@v4
+          - uses: dorny/paths-filter@v3
+            id: filter
+            with:
+              filters: |
+                frontend:
+                  - 'frontend/**'
+                backend:
+                  - 'backend/**'
 
-        test-frontend:
-          needs: changes
-          if: needs.changes.outputs.frontend == 'true'
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Testing frontend..."
+      test-frontend:
+        needs: changes
+        if: needs.changes.outputs.frontend == 'true'
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Testing frontend..."
 
-        test-backend:
-          needs: changes
-          if: needs.changes.outputs.backend == 'true'
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Testing backend..."
-      ```
+      test-backend:
+        needs: changes
+        if: needs.changes.outputs.backend == 'true'
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Testing backend..."
+    ```
 
-      **Key insight:** `dorny/paths-filter` enables fine-grained matrix and job execution inside a single workflow file based on Git change detection.
-    key_points:
-      - "dorny/paths-filter detects directory changes and exports boolean step outputs"
-      - "Downstream jobs use if: needs.changes.outputs.<service> == 'true'"
-      - "Reduces pipeline run times drastically in unified monorepo workflows"
+    **Key insight:** `dorny/paths-filter` enables fine-grained matrix and job execution inside a single workflow file based on Git change detection.
+  key_points:
+  - "dorny/paths-filter detects directory changes and exports boolean step outputs"
+  - "Downstream jobs use if: needs.changes.outputs.<service> == 'true'"
+  - "Reduces pipeline run times drastically in unified monorepo workflows"
 
-  - title: "The Required Status Checks Trap"
-    content: |
-      In GitHub branch protection rules, you can mark specific status checks as "Required" before a pull request can be merged.
+- title: "The Required Status Checks Trap"
+  content: |
+    In GitHub branch protection rules, you can mark specific status checks as "Required" before a pull request can be merged.
 
-      **The Trap:**
-      If a required check is skipped because of a `paths:` filter (e.g. the PR only changed `README.md`), GitHub leaves the status check in "Pending" forever, blocking the merge!
+    **The Trap:**
+    If a required check is skipped because of a `paths:` filter (e.g. the PR only changed `README.md`), GitHub leaves the status check in "Pending" forever, blocking the merge!
 
-      **The Collector Job Solution:**
-      Add a final gatekeeper job that always executes and evaluates upstream results:
+    **The Collector Job Solution:**
+    Add a final gatekeeper job that always executes and evaluates upstream results:
 
-      ```yaml
-      jobs:
-        # (frontend and backend jobs as above)
+    ```yaml
+    jobs:
+      # (frontend and backend jobs as above)
 
-        ci-gate:
-          needs: [changes, test-frontend, test-backend]
-          if: always()
-          runs-on: ubuntu-latest
-          steps:
-            - name: Verify All Active Tests Succeeded
-              run: |
-                if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
-                  exit 1
-                fi
-                echo "All relevant checks passed or safely skipped!"
-      ```
-      Mark `ci-gate` as the single required check in your GitHub branch protection settings.
+      ci-gate:
+        needs: [changes, test-frontend, test-backend]
+        if: always()
+        runs-on: ubuntu-latest
+        steps:
+          - name: Verify All Active Tests Succeeded
+            run: |
+              if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
+                exit 1
+              fi
+              echo "All relevant checks passed or safely skipped!"
+    ```
+    Mark `ci-gate` as the single required check in your GitHub branch protection settings.
 
-      **Key insight:** A collector job with `if: always()` resolves branch protection deadlocks caused by path filtering.
-    key_points:
-      - "Skipped path checks can cause required branch protection checks to hang"
-      - "Use a final collector job with 'if: always()' as the required check"
-      - "Inspect needs.*.result to ensure no active jobs failed"
+    **Key insight:** A collector job with `if: always()` resolves branch protection deadlocks caused by path filtering.
+  key_points:
+  - "Skipped path checks can cause required branch protection checks to hang"
+  - "Use a final collector job with 'if: always()' as the required check"
+  - "Inspect needs.*.result to ensure no active jobs failed"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect Changed Files in Workspace"
-    instructions: |
-      **What we're doing:** Inspect the changed files status in your local git workspace.
+- id: "cmd-01"
+  title: "Inspect Changed Files in Workspace"
+  instructions: |
+    **What we're doing:** Inspect the changed files status in your local git workspace.
 
-      **Why this matters:** Path filters compare changed file paths against glob patterns.
+    **Why this matters:** Path filters compare changed file paths against glob patterns.
 
-      **The command pattern:**
-      ```
-      git status --short
-      ```
+    **The command pattern:**
+    ```
+    git status --short
+    ```
 
-      Run this command:
-    command_hint: "git status --short"
-    validation:
-      type: "command_output"
-      command: "git status --short || true"
-      expected_contains: ""
-    points: 10
+    Run this command:
+  command_hint: "git status --short"
+  validation:
+    type: "command_output"
+    command: "git status --short || true"
+    expected_contains: ""
+  points: 10
 
 scenarios:
-  - id: "ignore-documentation-paths"
-    title: "Ignore Documentation Changes in CI Trigger"
-    description: |
-      The test workflow currently runs whenever documentation files are edited.
-      Edit `.github/workflows/ci.yml` and add `paths-ignore:` under `on.push:` to ignore `docs/**` and `**.md`.
-    manifest: |
-      name: CI Suite
-      on:
-        push:
-          branches: [main]
-      jobs:
-        test:
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Running tests..."
-    hints:
-      - "Add 'paths-ignore:' under 'on.push:'."
-      - "List '- \"docs/**\"' and '- \"**.md\"'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "ignore-documentation-paths"
+  title: "Ignore Documentation Changes in CI Trigger"
+  description: |
+    The test workflow currently runs whenever documentation files are edited.
+    Edit `.github/workflows/ci.yml` and add `paths-ignore:` under `on.push:` to ignore `docs/**` and `**.md`.
+  manifest: |
+    name: CI Suite
+    on:
+      push:
+        branches: [main]
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Running tests..."
+  hints:
+  - "Add 'paths-ignore:' under 'on.push:'."
+  - "List '- \"docs/**\"' and '- \"**.md\"'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: on.push.paths-ignore
+      exists: true
+      message: Trigger must specify paths-ignore for docs.
+  points: 25
 
-  - id: "add-conditional-job-filter"
-    title: "Add Conditional Path Execution to Job"
-    description: |
-      The `api-tests` job is running unconditionally even when API code was unchanged.
-      Update `.github/workflows/ci.yml` so that `api-tests` declares `needs: changes` and:
-      `if: needs.changes.outputs.api == 'true'`
-    manifest: |
-      name: Monorepo Suite
-      on: [push]
-      jobs:
-        changes:
-          runs-on: ubuntu-latest
-          outputs:
-            api: ${{ steps.filter.outputs.api }}
-          steps:
-            - uses: dorny/paths-filter@v3
-              id: filter
-              with:
-                filters: |
-                  api: 'services/api/**'
-        api-tests:
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Running API tests..."
-    hints:
-      - "Add 'needs: changes' directly under 'api-tests:'."
-      - "Add 'if: needs.changes.outputs.api == \\'true\\''."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "add-conditional-job-filter"
+  title: "Add Conditional Path Execution to Job"
+  description: |
+    The `api-tests` job is running unconditionally even when API code was unchanged.
+    Update `.github/workflows/ci.yml` so that `api-tests` declares `needs: changes` and:
+    `if: needs.changes.outputs.api == 'true'`
+  manifest: |
+    name: Monorepo Suite
+    on: [push]
+    jobs:
+      changes:
+        runs-on: ubuntu-latest
+        outputs:
+          api: ${{ steps.filter.outputs.api }}
+        steps:
+          - uses: dorny/paths-filter@v3
+            id: filter
+            with:
+              filters: |
+                api: 'services/api/**'
+      api-tests:
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Running API tests..."
+  hints:
+  - "Add 'needs: changes' directly under 'api-tests:'."
+  - "Add 'if: needs.changes.outputs.api == \\'true\\''."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.backend.if
+      exists: true
+      message: Job must declare an 'if' condition evaluating changed files.
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "What happens if all changed files in a commit match a workflow's 'paths-ignore:' pattern?"
-      options:
-        - "The entire workflow run is skipped"
-        - "The workflow runs but with all steps skipped"
-        - "The workflow runs only on ubuntu-latest"
-        - "An error is posted to the pull request"
-      correct: "The entire workflow run is skipped"
-      explanation: "If every modified file is covered by paths-ignore, GitHub does not trigger the workflow."
-      points: 10
+  - type: "multiple_choice"
+    question: "What happens if all changed files in a commit match a workflow's 'paths-ignore:'
+      pattern?"
+    options:
+    - "The entire workflow run is skipped"
+    - "The workflow runs but with all steps skipped"
+    - "The workflow runs only on ubuntu-latest"
+    - "An error is posted to the pull request"
+    correct: "The entire workflow run is skipped"
+    explanation: "If every modified file is covered by paths-ignore, GitHub does not
+      trigger the workflow."
+    points: 10
 
-    - type: "true_false"
-      question: "Trigger-level 'paths:' filters allow individual jobs inside a single workflow file to run conditionally."
-      correct: false
-      explanation: "Trigger-level paths control the entire workflow. For individual job conditionals, use tools like dorny/paths-filter."
-      points: 10
+  - type: "true_false"
+    question: "Trigger-level 'paths:' filters allow individual jobs inside a single
+      workflow file to run conditionally."
+    correct: false
+    explanation: "Trigger-level paths control the entire workflow. For individual
+      job conditionals, use tools like dorny/paths-filter."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "How do you prevent skipped path checks from deadlocking required branch protection rules?"
-      options:
-        - "Use a final collector job with 'if: always()' as the sole required check"
-        - "Disable branch protection"
-        - "Set fail-fast: false"
-        - "Force all developers to push dummy commits"
-      correct: "Use a final collector job with 'if: always()' as the sole required check"
-      explanation: "A collector job runs regardless of which upstream jobs ran or skipped, providing a reliable green check for branch protection."
-      points: 10
+  - type: "multiple_choice"
+    question: "How do you prevent skipped path checks from deadlocking required branch
+      protection rules?"
+    options:
+    - "Use a final collector job with 'if: always()' as the sole required check"
+    - "Disable branch protection"
+    - "Set fail-fast: false"
+    - "Force all developers to push dummy commits"
+    correct: "Use a final collector job with 'if: always()' as the sole required check"
+    explanation: "A collector job runs regardless of which upstream jobs ran or skipped,
+      providing a reliable green check for branch protection."
+    points: 10
+  - id: q-fill-paths-filter
+    type: fill_yaml
+    question: Complete the trigger filter so the workflow only runs when files 
+      inside 'frontend/' change.
+    yaml_template: "on:\n  push:\n    __________:\n      - 'frontend/**'\n"
+    expected: paths
+    explanation: "'paths:' ensures jobs only trigger on commits touching specific
+      directory patterns."
+    points: 10

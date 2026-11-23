@@ -231,7 +231,10 @@ class ScenarioEngine:
             )
 
         self.current_context.state = ScenarioState.VALIDATING
-        context = {"workspace_path": self.current_context.workspace_path}
+        context = {
+            "workspace_path": self.current_context.workspace_path,
+            "starter_manifest": self.current_context.manifest,
+        }
         result = validate_from_spec(validation_spec, context=context)
 
         if result.success:

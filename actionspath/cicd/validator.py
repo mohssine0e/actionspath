@@ -10,6 +10,7 @@ Validates:
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -302,6 +303,7 @@ def run_actionlint(
         run_cwd = cwd or target_path.parent
         res = subprocess.run(
             ["actionlint", "-oneline", str(target_path)],
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             cwd=run_cwd,
@@ -375,12 +377,74 @@ def validate_workflow(
     )
 
 
-def execute_command(command: str, timeout: int = 30, cwd: Optional[Path | str] = None) -> ValidationResult:
-    """Execute a user-provided command and return the result."""
+def sanitize_command(command: str) -> Tuple[bool, str, Optional[str]]:
+    """Sanitize learner command to prevent terminal hangs on interactive tools.
+
+    Returns:
+        Tuple of (is_safe: bool, sanitized_cmd: str, error_message: Optional[str])
+    """
+    cmd = command.strip()
+    if not cmd:
+        return True, cmd, None
+
+    # Block interactive TTY flags (-it, -ti, --interactive)
+    if re.search(r"(?:^|\s)(-it|-ti|--interactive)(?:\s|$)", cmd):
+        return (
+            False,
+            cmd,
+            "Interactive mode (-it) is not supported in command evaluation. Run non-interactively without -it.",
+        )
+
+    # Block direct editor invocations that hijack terminal
+    first_token = cmd.split()[0].lower()
+    if first_token in ("nano", "vim", "vi", "emacs", "code"):
+        return (
+            False,
+            cmd,
+            f"Direct editor '{first_token}' is blocked. Use the [e] option to open files in your editor.",
+        )
+
+    # Block bare commands that wait indefinitely for stdin
+    if cmd in ("cat", "grep", "sed", "awk"):
+        return (
+            False,
+            cmd,
+            f"Command '{cmd}' requires arguments or file paths. It cannot read interactive keyboard input.",
+        )
+
+    # Block infinite streaming commands
+    if re.search(r"(?:^|\s)tail\s+(-f|-F|--follow)(?:\s|$)", cmd):
+        return (
+            False,
+            cmd,
+            "Continuous follow ('tail -f') is blocked. Use 'tail -n 20 <file>' to view recent output.",
+        )
+    if first_token in ("watch", "top", "htop"):
+        return (
+            False,
+            cmd,
+            f"Interactive viewer '{first_token}' is not supported. Run commands directly.",
+        )
+
+    return True, cmd, None
+
+
+def execute_command(command: str, timeout: int = 10, cwd: Optional[Path | str] = None) -> ValidationResult:
+    """Execute a user-provided command safely with stdin isolation and hang protection."""
+    is_safe, sanitized, error_msg = sanitize_command(command)
+    if not is_safe:
+        return ValidationResult(
+            success=False,
+            message=error_msg or "Unsafe command blocked",
+            output=error_msg or "",
+            errors=[error_msg or "Blocked interactive command"],
+        )
+
     try:
         result = subprocess.run(
-            command,
+            sanitized,
             shell=True,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -431,10 +495,10 @@ def validate_command_output(
     command: str,
     expected_contains: Optional[str] = None,
     expected_not_contains: Optional[str] = None,
-    timeout: int = 30,
+    timeout: int = 10,
     cwd: Optional[Path | str] = None,
 ) -> ValidationResult:
-    """Run a shell command and validate its output.
+    """Run a shell command and validate its output safely.
 
     Args:
         command: Shell command string.
@@ -443,10 +507,20 @@ def validate_command_output(
         timeout: Timeout in seconds.
         cwd: Working directory.
     """
+    is_safe, sanitized, error_msg = sanitize_command(command)
+    if not is_safe:
+        return ValidationResult(
+            success=False,
+            message=error_msg or "Unsafe command blocked",
+            output=error_msg or "",
+            errors=[error_msg or "Blocked interactive command"],
+        )
+
     try:
         result = subprocess.run(
-            command,
+            sanitized,
             shell=True,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -497,6 +571,174 @@ def validate_command_output(
         )
 
 
+# ---------------------------------------------------------------------------
+# Semantic Scenario Assertions (Layer 2 verification)
+# ---------------------------------------------------------------------------
+
+
+def resolve_yaml_path(data: Any, path: str) -> Tuple[Any, bool]:
+    """Traverse dot-separated path in nested dict/list structures.
+
+    Returns:
+        Tuple of (target_value, exists: bool)
+    """
+    if not path:
+        return data, True
+
+    current = data
+    parts = path.split(".")
+    for part in parts:
+        if isinstance(current, dict):
+            if part in current:
+                current = current[part]
+            else:
+                return None, False
+        elif isinstance(current, list):
+            try:
+                idx = int(part)
+                if 0 <= idx < len(current):
+                    current = current[idx]
+                else:
+                    return None, False
+            except ValueError:
+                return None, False
+        else:
+            return None, False
+
+    return current, True
+
+
+def check_yaml_assertion(
+    workflow_data: Dict[str, Any],
+    assertion: Dict[str, Any],
+) -> Tuple[bool, str]:
+    """Check a semantic assertion against parsed workflow YAML data.
+
+    Supported assertion rules:
+    - path: Dot-separated path in YAML
+    - equals: Value must exactly equal
+    - contains: Target (list/dict/str) must contain specified item(s)
+    - not_contains: Target must not contain item(s)
+    - exists: Boolean whether path must exist
+    - has_step_using: In a steps list, at least one step uses action pattern
+    - has_step_with_run: In a steps list, at least one step run contains text
+    """
+    path = assertion.get("path", "")
+    val, exists = resolve_yaml_path(workflow_data, path)
+
+    # 1. Existence check
+    if "exists" in assertion:
+        req_exists = assertion["exists"]
+        if req_exists and not exists:
+            return False, f"Required path '{path}' does not exist in workflow."
+        if not req_exists and exists:
+            return False, f"Path '{path}' must not be present in workflow."
+
+    if not exists:
+        return False, f"Path '{path}' not found in workflow."
+
+    # 2. Exact equality check
+    if "equals" in assertion:
+        expected = assertion["equals"]
+        if val != expected:
+            return False, f"At '{path}': expected {expected!r}, got {val!r}."
+
+    # 3. Contains check
+    if "contains" in assertion:
+        expected_items = assertion["contains"]
+        if not isinstance(expected_items, list):
+            expected_items = [expected_items]
+
+        if isinstance(val, list):
+            for item in expected_items:
+                if item not in val:
+                    return False, f"At '{path}': missing required item {item!r} in {val!r}."
+        elif isinstance(val, dict):
+            for item in expected_items:
+                if item not in val:
+                    return False, f"At '{path}': missing required key {item!r} in {list(val.keys())!r}."
+        elif isinstance(val, str):
+            for item in expected_items:
+                if str(item).lower() not in val.lower():
+                    return False, f"At '{path}': expected string to contain {item!r}."
+        else:
+            return False, f"At '{path}': cannot check 'contains' on type {type(val).__name__}."
+
+    # 4. Not contains check
+    if "not_contains" in assertion:
+        forbidden_items = assertion["not_contains"]
+        if not isinstance(forbidden_items, list):
+            forbidden_items = [forbidden_items]
+
+        for item in forbidden_items:
+            if isinstance(val, (list, dict, str)) and item in val:
+                return False, f"At '{path}': found forbidden item {item!r}."
+
+    # 5. Steps list checking: has_step_using
+    if "has_step_using" in assertion:
+        target_action = assertion["has_step_using"].lower()
+        if not isinstance(val, list):
+            return False, f"At '{path}': expected a list of steps, got {type(val).__name__}."
+
+        found = False
+        for step in val:
+            if isinstance(step, dict) and "uses" in step:
+                uses_val = str(step["uses"]).lower()
+                if target_action in uses_val:
+                    found = True
+                    break
+        if not found:
+            return False, f"Steps list at '{path}' is missing a step using '{assertion['has_step_using']}'."
+
+    # 6. Steps list checking: has_step_with_run
+    if "has_step_with_run" in assertion:
+        target_run = assertion["has_step_with_run"].lower()
+        if not isinstance(val, list):
+            return False, f"At '{path}': expected a list of steps, got {type(val).__name__}."
+
+        found = False
+        for step in val:
+            if isinstance(step, dict) and "run" in step:
+                run_val = str(step["run"]).lower()
+                if target_run in run_val:
+                    found = True
+                    break
+        if not found:
+            return False, f"Steps list at '{path}' is missing a step running '{assertion['has_step_with_run']}'."
+
+    return True, "Assertion passed."
+
+
+def validate_scenario_assertions(
+    content_or_path: Union[str, Path],
+    assertions: List[Dict[str, Any]],
+) -> ValidationResult:
+    """Validate a workflow against a list of semantic assertions."""
+    data, err = _load_yaml(content_or_path)
+    if err or data is None or not isinstance(data, dict):
+        return ValidationResult(
+            success=False,
+            message="Cannot evaluate assertions: invalid YAML syntax",
+            errors=[err or "Parsed YAML is not a dictionary"],
+        )
+
+    for assertion in assertions:
+        passed, fail_msg = check_yaml_assertion(data, assertion)
+        if not passed:
+            custom_msg = assertion.get("message")
+            display_msg = f"{custom_msg} ({fail_msg})" if custom_msg else fail_msg
+            return ValidationResult(
+                success=False,
+                message=display_msg,
+                errors=[display_msg],
+            )
+
+    return ValidationResult(
+        success=True,
+        message="All scenario requirements verified successfully",
+    )
+
+
 def validate_from_spec(
     validation_spec: Dict[str, Any],
     context: Optional[Dict[str, Any]] = None,
@@ -504,7 +746,7 @@ def validate_from_spec(
     """Validate learner solution according to a challenge validation specification.
 
     Supports:
-    - type: "workflow" / "yaml": Validates workflow file or content.
+    - type: "workflow" / "yaml": Validates workflow file or content with semantic assertions.
     - type: "command": Runs command and tests output.
     - type: "file_exists": Verifies a required file was created.
     """
@@ -520,7 +762,30 @@ def validate_from_spec(
         else:
             target = validation_spec.get("content", "")
 
-        return validate_workflow(target, workspace_path=Path(cwd) if cwd else None)
+        # Layer 1: Schema / Structure / Actionlint
+        base_res = validate_workflow(target, workspace_path=Path(cwd) if cwd else None)
+        if not base_res.success:
+            return base_res
+
+        # Layer 2: Negative check (did learner actually modify the file from starter?)
+        starter = context.get("starter_manifest") if context else None
+        if starter and isinstance(target, Path) and target.is_file():
+            current_content = target.read_text(encoding="utf-8").strip()
+            if current_content == starter.strip():
+                return ValidationResult(
+                    success=False,
+                    message="Workflow has not been modified. Use [e] to edit the file and fix the issue.",
+                    errors=["File matches starter manifest without changes"],
+                )
+
+        # Layer 3: Semantic Assertions
+        assertions = validation_spec.get("assertions")
+        if assertions:
+            assert_res = validate_scenario_assertions(target, assertions)
+            if not assert_res.success:
+                return assert_res
+
+        return base_res
 
     if v_type == "file_exists":
         file_path = validation_spec.get("file", "")
@@ -539,6 +804,6 @@ def validate_from_spec(
         command=command,
         expected_contains=validation_spec.get("expected_contains"),
         expected_not_contains=validation_spec.get("expected_not_contains"),
-        timeout=validation_spec.get("timeout", 30),
+        timeout=validation_spec.get("timeout", 10),
         cwd=cwd,
     )

@@ -1,215 +1,239 @@
 chapter:
   number: 19
   title: "Static Security Analysis & CodeQL"
-  description: "Automate Static Application Security Testing (SAST) using GitHub CodeQL, scan for vulnerabilities, and upload SARIF reports."
+  description: "Automate Static Application Security Testing (SAST) using GitHub CodeQL,
+    scan for vulnerabilities, and upload SARIF reports."
 
 concepts:
-  - title: "What is CodeQL? Treating Code as Data"
-    content: |
-      Finding vulnerabilities before code reaches production is the core goal of DevSecOps. **CodeQL** is GitHub's industry-leading semantic code analysis engine.
+- title: "What is CodeQL? Treating Code as Data"
+  content: |
+    Finding vulnerabilities before code reaches production is the core goal of DevSecOps. **CodeQL** is GitHub's industry-leading semantic code analysis engine.
 
-      **The Blueprint Building Inspector Analogy**
+    **The Blueprint Building Inspector Analogy**
 
-      Instead of waiting for an apartment building to catch fire (runtime penetration testing), a building inspector reviews the structural blueprints. They query the architectural schematic: *"Is there any location where an uninsulated electrical wire runs directly beneath an exposed water pipe?"*
-      CodeQL treats your source code like a database queryable with relational logic.
+    Instead of waiting for an apartment building to catch fire (runtime penetration testing), a building inspector reviews the structural blueprints. They query the architectural schematic: *"Is there any location where an uninsulated electrical wire runs directly beneath an exposed water pipe?"*
+    CodeQL treats your source code like a database queryable with relational logic.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │ SOURCE REPOSITORY (Python / Go / TypeScript / Java)    │
-      └──────────────────────────┬─────────────────────────────┘
-                                 │ codeql-action/init
-                                 ▼
-      ┌────────────────────────────────────────────────────────┐
-      │ CODEQL COMPILATION & DATABASE CREATION                 │
-      │  Extracts Abstract Syntax Trees (AST) & Data Flow      │
-      └──────────────────────────┬─────────────────────────────┘
-                                 │ codeql-action/analyze
-                                 ▼
-      ┌────────────────────────────────────────────────────────┐
-      │ SECURITY SCANNING ENGINE                               │
-      │  Runs security queries: SQL Injection, XSS, Path Traversal
-      │  Generates SARIF report ──► Uploads to GitHub Security │
-      └────────────────────────────────────────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │ SOURCE REPOSITORY (Python / Go / TypeScript / Java)    │
+    └──────────────────────────┬─────────────────────────────┘
+                               │ codeql-action/init
+                               ▼
+    ┌────────────────────────────────────────────────────────┐
+    │ CODEQL COMPILATION & DATABASE CREATION                 │
+    │  Extracts Abstract Syntax Trees (AST) & Data Flow      │
+    └──────────────────────────┬─────────────────────────────┘
+                               │ codeql-action/analyze
+                               ▼
+    ┌────────────────────────────────────────────────────────┐
+    │ SECURITY SCANNING ENGINE                               │
+    │  Runs security queries: SQL Injection, XSS, Path Traversal
+    │  Generates SARIF report ──► Uploads to GitHub Security │
+    └────────────────────────────────────────────────────────┘
+    ```
 
-      **Key insight:** CodeQL tracks data flow from untrusted user inputs (sources) to dangerous execution functions (sinks) across functions and files.
-    key_points:
-      - "CodeQL models source code as a database to find semantic vulnerabilities"
-      - "Identifies zero-days, SQL injections, Cross-Site Scripting (XSS), and memory leaks"
-      - "Automates pull request security scans before merge"
+    **Key insight:** CodeQL tracks data flow from untrusted user inputs (sources) to dangerous execution functions (sinks) across functions and files.
+  key_points:
+  - "CodeQL models source code as a database to find semantic vulnerabilities"
+  - "Identifies zero-days, SQL injections, Cross-Site Scripting (XSS), and memory
+    leaks"
+  - "Automates pull request security scans before merge"
 
-  - title: "The CodeQL Workflow Sequence"
-    content: |
-      Running CodeQL requires a standard three-step workflow structure:
+- title: "The CodeQL Workflow Sequence"
+  content: |
+    Running CodeQL requires a standard three-step workflow structure:
 
-      ```yaml
-      name: CodeQL Security Analysis
-      on:
-        push:
-          branches: [main]
-        pull_request:
-          branches: [main]
-        schedule:
-          - cron: '0 6 * * 1'   # Weekly scan for newly discovered CVEs
+    ```yaml
+    name: CodeQL Security Analysis
+    on:
+      push:
+        branches: [main]
+      pull_request:
+        branches: [main]
+      schedule:
+        - cron: '0 6 * * 1'   # Weekly scan for newly discovered CVEs
 
-      permissions:
-        actions: read
-        contents: read
-        security-events: write  # Crucial: Required to post alerts to Security tab
+    permissions:
+      actions: read
+      contents: read
+      security-events: write  # Crucial: Required to post alerts to Security tab
 
-      jobs:
-        analyze:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
+    jobs:
+      analyze:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
 
-            # Step 1: Initialize CodeQL tools and database
-            - name: Initialize CodeQL
-              uses: github/codeql-action/init@v3
-              with:
-                languages: python
+          # Step 1: Initialize CodeQL tools and database
+          - name: Initialize CodeQL
+            uses: github/codeql-action/init@v3
+            with:
+              languages: python
 
-            # Step 2: Autobuild (required for compiled languages: C++, Go, Java)
-            - name: Perform Autobuild
-              uses: github/codeql-action/autobuild@v3
+          # Step 2: Autobuild (required for compiled languages: C++, Go, Java)
+          - name: Perform Autobuild
+            uses: github/codeql-action/autobuild@v3
 
-            # Step 3: Run analysis queries and upload results
-            - name: Perform CodeQL Analysis
-              uses: github/codeql-action/analyze@v3
-      ```
+          # Step 3: Run analysis queries and upload results
+          - name: Perform CodeQL Analysis
+            uses: github/codeql-action/analyze@v3
+    ```
 
-      **Key insight:** `security-events: write` permission is mandatory so the runner can upload findings into the GitHub repository's Security Alerts dashboard.
-    key_points:
-      - "The three-step sequence: init -> autobuild -> analyze"
-      - "Requires 'permissions: security-events: write'"
-      - "Weekly schedule cron scans find vulnerabilities disclosed after code was merged"
+    **Key insight:** `security-events: write` permission is mandatory so the runner can upload findings into the GitHub repository's Security Alerts dashboard.
+  key_points:
+  - "The three-step sequence: init -> autobuild -> analyze"
+  - "Requires 'permissions: security-events: write'"
+  - "Weekly schedule cron scans find vulnerabilities disclosed after code was merged"
 
-  - title: "Query Suites and SARIF Reports"
-    content: |
-      You can customize the depth of CodeQL scans using query suites:
-      - `default`: Fast, high-confidence security queries with low false-positive rates.
-      - `security-extended`: Comprehensive security rules including lower-severity warnings.
-      - `security-and-quality`: Includes maintainability and code quality rules.
+- title: "Query Suites and SARIF Reports"
+  content: |
+    You can customize the depth of CodeQL scans using query suites:
+    - `default`: Fast, high-confidence security queries with low false-positive rates.
+    - `security-extended`: Comprehensive security rules including lower-severity warnings.
+    - `security-and-quality`: Includes maintainability and code quality rules.
 
-      ```yaml
-      - uses: github/codeql-action/init@v3
-        with:
-          languages: javascript
-          queries: security-extended
-      ```
+    ```yaml
+    - uses: github/codeql-action/init@v3
+      with:
+        languages: javascript
+        queries: security-extended
+    ```
 
-      **The SARIF Universal Format:**
-      Static Analysis Results Interchange Format (SARIF) is the open JSON standard for security findings.
-      Any third-party security scanner (e.g. Trivy, Snyk, Semgrep) can upload its results to the GitHub Security tab using `github/codeql-action/upload-sarif@v3`.
+    **The SARIF Universal Format:**
+    Static Analysis Results Interchange Format (SARIF) is the open JSON standard for security findings.
+    Any third-party security scanner (e.g. Trivy, Snyk, Semgrep) can upload its results to the GitHub Security tab using `github/codeql-action/upload-sarif@v3`.
 
-      **Key insight:** SARIF provides a unified dashboard in GitHub for both CodeQL and third-party security tools.
-    key_points:
-      - "Use 'queries: security-extended' for deeper vulnerability detection"
-      - "SARIF is the standard interchange format for static analysis findings"
-      - "Third-party scanners use upload-sarif@v3 to display alerts in GitHub Security"
+    **Key insight:** SARIF provides a unified dashboard in GitHub for both CodeQL and third-party security tools.
+  key_points:
+  - "Use 'queries: security-extended' for deeper vulnerability detection"
+  - "SARIF is the standard interchange format for static analysis findings"
+  - "Third-party scanners use upload-sarif@v3 to display alerts in GitHub Security"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect Repository Code Files for Scanning"
-    instructions: |
-      **What we're doing:** Inspect the Python source files in the project workspace.
+- id: "cmd-01"
+  title: "Inspect Repository Code Files for Scanning"
+  instructions: |
+    **What we're doing:** Inspect the Python source files in the project workspace.
 
-      **Why this matters:** CodeQL languages must match the codebase files.
+    **Why this matters:** CodeQL languages must match the codebase files.
 
-      **The command pattern:**
-      ```
-      find actionspath -name "*.py" | head -n 3
-      ```
+    **The command pattern:**
+    ```
+    find actionspath -name "*.py" | head -n 3
+    ```
 
-      Run this command:
-    command_hint: "find actionspath -name \"*.py\" | head -n 3"
-    validation:
-      type: "command_output"
-      command: "find actionspath -name '*.py' | head -n 3"
-      expected_contains: "actionspath"
-    points: 10
+    Run this command:
+  command_hint: "find actionspath -name \"*.py\" | head -n 3"
+  validation:
+    type: "command_output"
+    command: "find actionspath -name '*.py' | head -n 3"
+    expected_contains: "actionspath"
+  points: 10
 
 scenarios:
-  - id: "fix-codeql-permissions"
-    title: "Grant security-events Permission to CodeQL"
-    description: |
-      The CodeQL analysis job fails with `403 Forbidden` when attempting to upload the SARIF results file.
-      Edit `.github/workflows/ci.yml` and add `security-events: write` under `permissions:`.
-    manifest: |
-      name: Security Scan
-      on: [push]
-      permissions:
-        contents: read
-      jobs:
-        codeql:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - uses: github/codeql-action/init@v3
-              with:
-                languages: python
-            - uses: github/codeql-action/analyze@v3
-    hints:
-      - "CodeQL uploads SARIF reports using the security-events API."
-      - "Add 'security-events: write' under 'permissions:'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-codeql-permissions"
+  title: "Grant security-events Permission to CodeQL"
+  description: |
+    The CodeQL analysis job fails with `403 Forbidden` when attempting to upload the SARIF results file.
+    Edit `.github/workflows/ci.yml` and add `security-events: write` under `permissions:`.
+  manifest: |
+    name: Security Scan
+    on: [push]
+    permissions:
+      contents: read
+    jobs:
+      codeql:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: github/codeql-action/init@v3
+            with:
+              languages: python
+          - uses: github/codeql-action/analyze@v3
+  hints:
+  - "CodeQL uploads SARIF reports using the security-events API."
+  - "Add 'security-events: write' under 'permissions:'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: permissions.security-events
+      equals: write
+      message: 'CodeQL analysis requires permissions: security-events: write.'
+  points: 25
 
-  - id: "fix-codeql-step-sequence"
-    title: "Fix CodeQL Step Ordering"
-    description: |
-      A developer placed `github/codeql-action/analyze@v3` before `github/codeql-action/init@v3`, causing the runner to fail because no database exists yet!
-      Reorder the steps in `.github/workflows/ci.yml` so `init` runs before `analyze`.
-    manifest: |
-      name: SAST
-      on: [push]
-      permissions:
-        security-events: write
-      jobs:
-        analyze:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - uses: github/codeql-action/analyze@v3
-            - uses: github/codeql-action/init@v3
-              with:
-                languages: python
-    hints:
-      - "CodeQL cannot analyze before the database is initialized."
-      - "Move the 'init@v3' step above the 'analyze@v3' step."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-codeql-step-sequence"
+  title: "Fix CodeQL Step Ordering"
+  description: |
+    A developer placed `github/codeql-action/analyze@v3` before `github/codeql-action/init@v3`, causing the runner to fail because no database exists yet!
+    Reorder the steps in `.github/workflows/ci.yml` so `init` runs before `analyze`.
+  manifest: |
+    name: SAST
+    on: [push]
+    permissions:
+      security-events: write
+    jobs:
+      analyze:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: github/codeql-action/analyze@v3
+          - uses: github/codeql-action/init@v3
+            with:
+              languages: python
+  hints:
+  - "CodeQL cannot analyze before the database is initialized."
+  - "Move the 'init@v3' step above the 'analyze@v3' step."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.analyze.steps
+      has_step_using: github/codeql-action/init
+      message: Must initialize CodeQL with github/codeql-action/init.
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "Which token permission is strictly required to upload CodeQL SARIF scan results to GitHub?"
-      options:
-        - "security-events: write"
-        - "contents: write"
-        - "vulnerabilities: write"
-        - "issues: write"
-      correct: "security-events: write"
-      explanation: "The GitHub code scanning API requires 'security-events: write' to record alerts in the repository Security tab."
-      points: 10
+  - type: "multiple_choice"
+    question: "Which token permission is strictly required to upload CodeQL SARIF
+      scan results to GitHub?"
+    options:
+    - "security-events: write"
+    - "contents: write"
+    - "vulnerabilities: write"
+    - "issues: write"
+    correct: "security-events: write"
+    explanation: "The GitHub code scanning API requires 'security-events: write' to
+      record alerts in the repository Security tab."
+    points: 10
 
-    - type: "true_false"
-      question: "CodeQL requires a build step (autobuild or custom build) for compiled languages like Go, Java, and C++."
-      correct: true
-      explanation: "Compiled languages require CodeQL to observe the compiler invocation during build to extract semantic AST data."
-      points: 10
+  - type: "true_false"
+    question: "CodeQL requires a build step (autobuild or custom build) for compiled
+      languages like Go, Java, and C++."
+    correct: true
+    explanation: "Compiled languages require CodeQL to observe the compiler invocation
+      during build to extract semantic AST data."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "What is SARIF in the context of CI/CD security scanning?"
-      options:
-        - "An open JSON standard format for sharing static analysis results"
-        - "A proprietary GitHub file compression format"
-        - "A programming language used by CodeQL"
-        - "An encryption protocol for secrets"
-      correct: "An open JSON standard format for sharing static analysis results"
-      explanation: "Static Analysis Results Interchange Format (SARIF) is the OASIS standard format used across security scanners."
-      points: 10
+  - type: "multiple_choice"
+    question: "What is SARIF in the context of CI/CD security scanning?"
+    options:
+    - "An open JSON standard format for sharing static analysis results"
+    - "A proprietary GitHub file compression format"
+    - "A programming language used by CodeQL"
+    - "An encryption protocol for secrets"
+    correct: "An open JSON standard format for sharing static analysis results"
+    explanation: "Static Analysis Results Interchange Format (SARIF) is the OASIS
+      standard format used across security scanners."
+    points: 10
+  - id: q-fill-security-events-perm
+    type: fill_yaml
+    question: What permission must be granted 'write' so CodeQL can upload SARIF
+      security alerts to GitHub Security tab?
+    yaml_template: "permissions:\n  __________: write\n"
+    expected: security-events
+    explanation: "'security-events: write' allows CodeQL actions to post SARIF vulnerability
+      reports to GitHub Code Scanning."
+    points: 10

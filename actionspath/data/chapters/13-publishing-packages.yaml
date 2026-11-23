@@ -1,224 +1,249 @@
 chapter:
   number: 13
   title: "Publishing Packages & Container Registries"
-  description: "Publish packages to npm, PyPI, and push multi-arch Docker container images to GitHub Container Registry (ghcr.io) with provenance."
+  description: "Publish packages to npm, PyPI, and push multi-arch Docker container
+    images to GitHub Container Registry (ghcr.io) with provenance."
 
 concepts:
-  - title: "Package Registries vs Raw Binaries"
-    content: |
-      While GitHub Releases host standalone binary assets, developers rely on package registries (npm, PyPI, Maven, Docker Hub, GHCR) for automatic dependency management.
+- title: "Package Registries vs Raw Binaries"
+  content: |
+    While GitHub Releases host standalone binary assets, developers rely on package registries (npm, PyPI, Maven, Docker Hub, GHCR) for automatic dependency management.
 
-      **The Bookstore Catalog Analogy**
+    **The Bookstore Catalog Analogy**
 
-      Handing someone a loose printout of a manuscript is like giving them a raw `.tar.gz`. But registering that book in the Library of Congress and distributing it through bookstores with an ISBN (a package registry) allows anyone to order it by name (`npm install` or `pip install`) with all prerequisite books automatically included.
+    Handing someone a loose printout of a manuscript is like giving them a raw `.tar.gz`. But registering that book in the Library of Congress and distributing it through bookstores with an ISBN (a package registry) allows anyone to order it by name (`npm install` or `pip install`) with all prerequisite books automatically included.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │ SOURCE REPO (actionspath)                              │
-      │  - Trigger: Release published or tag pushed            │
-      └──────────────────────────┬─────────────────────────────┘
-                                 │
-                 ┌───────────────┴───────────────┐
-                 ▼                               ▼
-      ┌─────────────────────┐         ┌─────────────────────┐
-      │ DOCKER CONTAINER    │         │ PYTHON / NODE       │
-      │ ghcr.io/owner/image │         │ PyPI / npm Registry │
-      │                     │         │                     │
-      │ docker/build-push   │         │ pypa/gh-action-pypi │
-      │ permissions:        │         │ permissions:        │
-      │   packages: write   │         │   id-token: write   │
-      └─────────────────────┘         └─────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │ SOURCE REPO (actionspath)                              │
+    │  - Trigger: Release published or tag pushed            │
+    └──────────────────────────┬─────────────────────────────┘
+                               │
+               ┌───────────────┴───────────────┐
+               ▼                               ▼
+    ┌─────────────────────┐         ┌─────────────────────┐
+    │ DOCKER CONTAINER    │         │ PYTHON / NODE       │
+    │ ghcr.io/owner/image │         │ PyPI / npm Registry │
+    │                     │         │                     │
+    │ docker/build-push   │         │ pypa/gh-action-pypi │
+    │ permissions:        │         │ permissions:        │
+    │   packages: write   │         │   id-token: write   │
+    └─────────────────────┘         └─────────────────────┘
+    ```
 
-      **Key insight:** Automating package publishing eliminates manual errors and guarantees that released packages match the exact Git commit SHA.
-    key_points:
-      - "Registries (PyPI, npm, GHCR) enable automated dependency resolution for consumers"
-      - "Workflows authenticate securely using short-lived tokens or OIDC"
-      - "Automated publishing guarantees reproducible builds matching Git tags"
+    **Key insight:** Automating package publishing eliminates manual errors and guarantees that released packages match the exact Git commit SHA.
+  key_points:
+  - "Registries (PyPI, npm, GHCR) enable automated dependency resolution for consumers"
+  - "Workflows authenticate securely using short-lived tokens or OIDC"
+  - "Automated publishing guarantees reproducible builds matching Git tags"
 
-  - title: "Publishing Docker Images to GHCR"
-    content: |
-      GitHub provides a free container registry (`ghcr.io`) tightly integrated with GitHub Actions.
+- title: "Publishing Docker Images to GHCR"
+  content: |
+    GitHub provides a free container registry (`ghcr.io`) tightly integrated with GitHub Actions.
 
-      **Standard Docker Publishing Flow:**
-      ```yaml
-      name: Publish Container
-      on:
-        push:
-          tags: ['v*']
+    **Standard Docker Publishing Flow:**
+    ```yaml
+    name: Publish Container
+    on:
+      push:
+        tags: ['v*']
 
-      permissions:
-        contents: read
-        packages: write  # Crucial: Required to push images to ghcr.io
+    permissions:
+      contents: read
+      packages: write  # Crucial: Required to push images to ghcr.io
 
-      jobs:
-        docker:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
+    jobs:
+      docker:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
 
-            - name: Log in to GitHub Container Registry
-              uses: docker/login-action@v3
-              with:
-                registry: ghcr.io
-                username: ${{ github.actor }}
-                password: ${{ secrets.GITHUB_TOKEN }}
+          - name: Log in to GitHub Container Registry
+            uses: docker/login-action@v3
+            with:
+              registry: ghcr.io
+              username: ${{ github.actor }}
+              password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Extract Docker Metadata (Tags & Labels)
-              id: meta
-              uses: docker/metadata-action@v5
-              with:
-                images: ghcr.io/${{ github.repository }}
+          - name: Extract Docker Metadata (Tags & Labels)
+            id: meta
+            uses: docker/metadata-action@v5
+            with:
+              images: ghcr.io/${{ github.repository }}
 
-            - name: Build and Push Docker Image
-              uses: docker/build-push-action@v5
-              with:
-                context: .
-                push: true
-                tags: ${{ steps.meta.outputs.tags }}
-                labels: ${{ steps.meta.outputs.labels }}
-      ```
+          - name: Build and Push Docker Image
+            uses: docker/build-push-action@v5
+            with:
+              context: .
+              push: true
+              tags: ${{ steps.meta.outputs.tags }}
+              labels: ${{ steps.meta.outputs.labels }}
+    ```
 
-      **Key insight:** Use `docker/metadata-action` to automatically extract tags like `:latest`, `:1.0.0`, and `:sha-xxxx` from the Git trigger.
-    key_points:
-      - "ghcr.io accepts Docker images using github.actor and secrets.GITHUB_TOKEN"
-      - "The job requires 'permissions: packages: write'"
-      - "docker/metadata-action standardizes image tag generation"
+    **Key insight:** Use `docker/metadata-action` to automatically extract tags like `:latest`, `:1.0.0`, and `:sha-xxxx` from the Git trigger.
+  key_points:
+  - "ghcr.io accepts Docker images using github.actor and secrets.GITHUB_TOKEN"
+  - "The job requires 'permissions: packages: write'"
+  - "docker/metadata-action standardizes image tag generation"
 
-  - title: "Language Package Publishing & Trusted Publishing"
-    content: |
-      Traditional publishing relied on long-lived API tokens stored in repository secrets. Modern publishing uses **Trusted Publishing (OIDC)**.
+- title: "Language Package Publishing & Trusted Publishing"
+  content: |
+    Traditional publishing relied on long-lived API tokens stored in repository secrets. Modern publishing uses **Trusted Publishing (OIDC)**.
 
-      **How OIDC Trusted Publishing Works:**
-      1. Your workflow requests a short-lived cryptographically signed token from GitHub via `permissions: id-token: write`.
-      2. The workflow exchanges this token with PyPI or npm.
-      3. PyPI validates that the token came from your exact repository and workflow, then issues a temporary publish credential.
-      4. No secret password or API key ever needs to be stored or rotated!
+    **How OIDC Trusted Publishing Works:**
+    1. Your workflow requests a short-lived cryptographically signed token from GitHub via `permissions: id-token: write`.
+    2. The workflow exchanges this token with PyPI or npm.
+    3. PyPI validates that the token came from your exact repository and workflow, then issues a temporary publish credential.
+    4. No secret password or API key ever needs to be stored or rotated!
 
-      ```yaml
-      # Publishing to PyPI with keyless OIDC
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        # No password or API token required!
-      ```
+    ```yaml
+    # Publishing to PyPI with keyless OIDC
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      # No password or API token required!
+    ```
 
-      **Key insight:** OIDC Trusted Publishing eliminates the risk of stolen or leaked repository publishing secrets.
-    key_points:
-      - "Trusted Publishing uses OIDC to eliminate long-lived API tokens"
-      - "Requires 'permissions: id-token: write' to issue GitHub identity tokens"
-      - "PyPI and npm verify the repository name and workflow filename before granting access"
+    **Key insight:** OIDC Trusted Publishing eliminates the risk of stolen or leaked repository publishing secrets.
+  key_points:
+  - "Trusted Publishing uses OIDC to eliminate long-lived API tokens"
+  - "Requires 'permissions: id-token: write' to issue GitHub identity tokens"
+  - "PyPI and npm verify the repository name and workflow filename before granting
+    access"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect Package Metadata Configuration"
-    instructions: |
-      **What we're doing:** Inspect your package definition in `pyproject.toml`.
+- id: "cmd-01"
+  title: "Inspect Package Metadata Configuration"
+  instructions: |
+    **What we're doing:** Inspect your package definition in `pyproject.toml`.
 
-      **Why this matters:** Package builders parse project metadata files to determine package name and version before publishing.
+    **Why this matters:** Package builders parse project metadata files to determine package name and version before publishing.
 
-      **The command pattern:**
-      ```
-      grep -E "(name|version)" pyproject.toml | head -n 2
-      ```
+    **The command pattern:**
+    ```
+    grep -E "(name|version)" pyproject.toml | head -n 2
+    ```
 
-      Run this command:
-    command_hint: "grep -E \"(name|version)\" pyproject.toml | head -n 2"
-    validation:
-      type: "command_output"
-      command: "grep -E '(name|version)' pyproject.toml | head -n 2"
-      expected_contains: "name"
-    points: 10
+    Run this command:
+  command_hint: "grep -E \"(name|version)\" pyproject.toml | head -n 2"
+  validation:
+    type: "command_output"
+    command: "grep -E '(name|version)' pyproject.toml | head -n 2"
+    expected_contains: "name"
+  points: 10
 
 scenarios:
-  - id: "fix-ghcr-packages-permission"
-    title: "Add Packages Permission for GHCR Push"
-    description: |
-      The Docker push step fails with `denied: installation not allowed to Create organization package` because the workflow token lacks `packages: write`.
-      Edit `.github/workflows/ci.yml` and add `packages: write` under `permissions:`.
-    manifest: |
-      name: Docker Release
-      on: [push]
-      permissions:
-        contents: read
-      jobs:
-        publish:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - uses: docker/login-action@v3
-              with:
-                registry: ghcr.io
-                username: ${{ github.actor }}
-                password: ${{ secrets.GITHUB_TOKEN }}
-    hints:
-      - "Pushing to ghcr.io requires 'packages: write' permissions."
-      - "Add 'packages: write' under the 'permissions:' block."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-ghcr-packages-permission"
+  title: "Add Packages Permission for GHCR Push"
+  description: |
+    The Docker push step fails with `denied: installation not allowed to Create organization package` because the workflow token lacks `packages: write`.
+    Edit `.github/workflows/ci.yml` and add `packages: write` under `permissions:`.
+  manifest: |
+    name: Docker Release
+    on: [push]
+    permissions:
+      contents: read
+    jobs:
+      publish:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: docker/login-action@v3
+            with:
+              registry: ghcr.io
+              username: ${{ github.actor }}
+              password: ${{ secrets.GITHUB_TOKEN }}
+  hints:
+  - "Pushing to ghcr.io requires 'packages: write' permissions."
+  - "Add 'packages: write' under the 'permissions:' block."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.publish.permissions.packages
+      equals: write
+      message: 'Publishing to GHCR requires permissions: packages: write.'
+  points: 25
 
-  - id: "add-docker-login-step"
-    title: "Add Docker Login Step Before Build-Push"
-    description: |
-      The pipeline tries to run `docker/build-push-action@v5` with `push: true`, but failed to log in first!
-      Add the `docker/login-action@v3` step before `build-push` in `.github/workflows/ci.yml`:
-      ```yaml
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      ```
-    manifest: |
-      name: Container Build
-      on: [push]
-      permissions:
-        packages: write
-      jobs:
-        build:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - uses: docker/build-push-action@v5
-              with:
-                push: true
-                tags: ghcr.io/my-org/app:latest
-    hints:
-      - "Place the login action between checkout and build-push."
-      - "Use docker/login-action@v3 with registry: ghcr.io."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "add-docker-login-step"
+  title: "Add Docker Login Step Before Build-Push"
+  description: |
+    The pipeline tries to run `docker/build-push-action@v5` with `push: true`, but failed to log in first!
+    Add the `docker/login-action@v3` step before `build-push` in `.github/workflows/ci.yml`:
+    ```yaml
+    - name: Log in to GHCR
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    ```
+  manifest: |
+    name: Container Build
+    on: [push]
+    permissions:
+      packages: write
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: docker/build-push-action@v5
+            with:
+              push: true
+              tags: ghcr.io/my-org/app:latest
+  hints:
+  - "Place the login action between checkout and build-push."
+  - "Use docker/login-action@v3 with registry: ghcr.io."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.publish.steps
+      has_step_using: docker/login-action
+      message: Must include docker/login-action step before build-push.
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "Which permission is required to push container images to GitHub Container Registry (ghcr.io)?"
-      options:
-        - "packages: write"
-        - "containers: write"
-        - "deployments: write"
-        - "contents: write"
-      correct: "packages: write"
-      explanation: "ghcr.io is managed through GitHub Packages, requiring 'packages: write'."
-      points: 10
+  - type: "multiple_choice"
+    question: "Which permission is required to push container images to GitHub Container
+      Registry (ghcr.io)?"
+    options:
+    - "packages: write"
+    - "containers: write"
+    - "deployments: write"
+    - "contents: write"
+    correct: "packages: write"
+    explanation: "ghcr.io is managed through GitHub Packages, requiring 'packages:
+      write'."
+    points: 10
 
-    - type: "true_false"
-      question: "OIDC Trusted Publishing requires storing a permanent API token in repository secrets."
-      correct: false
-      explanation: "Trusted Publishing exchanges short-lived cryptographic tokens without any stored secrets."
-      points: 10
+  - type: "true_false"
+    question: "OIDC Trusted Publishing requires storing a permanent API token in repository
+      secrets."
+    correct: false
+    explanation: "Trusted Publishing exchanges short-lived cryptographic tokens without
+      any stored secrets."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "What action extracts standard Docker tags (like :latest and :v1.0.0) from Git references?"
-      options:
-        - "docker/metadata-action"
-        - "docker/tag-action"
-        - "docker/extract-action"
-        - "actions/docker-tags"
-      correct: "docker/metadata-action"
-      explanation: "docker/metadata-action generates canonical tags and labels from Git branches, tags, and commit SHAs."
-      points: 10
+  - type: "multiple_choice"
+    question: "What action extracts standard Docker tags (like :latest and :v1.0.0)
+      from Git references?"
+    options:
+    - "docker/metadata-action"
+    - "docker/tag-action"
+    - "docker/extract-action"
+    - "actions/docker-tags"
+    correct: "docker/metadata-action"
+    explanation: "docker/metadata-action generates canonical tags and labels from
+      Git branches, tags, and commit SHAs."
+    points: 10
+  - id: q-fill-packages-permission
+    type: fill_yaml
+    question: What permission scope must be granted 'write' to push Docker 
+      images to GitHub Packages (ghcr.io)?
+    yaml_template: "permissions:\n  __________: write\n"
+    expected: packages
+    explanation: "'packages: write' authorizes the runner's GITHUB_TOKEN to push artifacts
+      to ghcr.io."
+    points: 10

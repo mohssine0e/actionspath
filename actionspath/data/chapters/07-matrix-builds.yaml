@@ -1,234 +1,261 @@
 chapter:
   number: 7
   title: "Matrix Builds & Parallel Variations"
-  description: "Automate cross-platform and multi-version testing using strategy matrices, include/exclude overrides, and fail-fast controls."
+  description: "Automate cross-platform and multi-version testing using strategy matrices,
+    include/exclude overrides, and fail-fast controls."
 
 concepts:
-  - title: "The Strategy Matrix"
-    content: |
-      Writing separate workflow files or jobs for every operating system and language version creates massive duplication. A **Matrix Strategy** generates parallel jobs automatically.
+- title: "The Strategy Matrix"
+  content: |
+    Writing separate workflow files or jobs for every operating system and language version creates massive duplication. A **Matrix Strategy** generates parallel jobs automatically.
 
-      **The Ice Cream Combinations Analogy**
+    **The Ice Cream Combinations Analogy**
 
-      If an ice cream parlor offers 3 flavors (Vanilla, Chocolate, Strawberry) and 2 cone types (Waffle, Sugar), you don't build 6 separate parlors. You define the 2 categories, and the combinations (3 × 2 = 6 cones) generate naturally.
+    If an ice cream parlor offers 3 flavors (Vanilla, Chocolate, Strawberry) and 2 cone types (Waffle, Sugar), you don't build 6 separate parlors. You define the 2 categories, and the combinations (3 × 2 = 6 cones) generate naturally.
 
-      ```
-      strategy:
-        matrix:
-          os: [ubuntu-latest, windows-latest]
-          version: [18, 20, 22]
+    ```
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        version: [18, 20, 22]
 
-      ┌────────────────────────────────────────────────────────┐
-      │ CARTESIAN PRODUCT (2 OS × 3 Versions = 6 Parallel Jobs)│
-      │                                                        │
-      │  Job 1: [ubuntu-latest,  18]                           │
-      │  Job 2: [ubuntu-latest,  20]                           │
-      │  Job 3: [ubuntu-latest,  22]                           │
-      │  Job 4: [windows-latest, 18]                           │
-      │  Job 5: [windows-latest, 20]                           │
-      │  Job 6: [windows-latest, 22]                           │
-      └────────────────────────────────────────────────────────┘
-      ```
+    ┌────────────────────────────────────────────────────────┐
+    │ CARTESIAN PRODUCT (2 OS × 3 Versions = 6 Parallel Jobs)│
+    │                                                        │
+    │  Job 1: [ubuntu-latest,  18]                           │
+    │  Job 2: [ubuntu-latest,  20]                           │
+    │  Job 3: [ubuntu-latest,  22]                           │
+    │  Job 4: [windows-latest, 18]                           │
+    │  Job 5: [windows-latest, 20]                           │
+    │  Job 6: [windows-latest, 22]                           │
+    └────────────────────────────────────────────────────────┘
+    ```
 
-      **Accessing Matrix Properties:**
-      Inside your steps, reference matrix values via the `matrix` context: `${{ matrix.os }}` or `${{ matrix.version }}`.
+    **Accessing Matrix Properties:**
+    Inside your steps, reference matrix values via the `matrix` context: `${{ matrix.os }}` or `${{ matrix.version }}`.
 
-      ```yaml
-      jobs:
-        test:
-          strategy:
-            matrix:
-              os: [ubuntu-latest, macos-latest]
-              node: [18, 20]
-          runs-on: ${{ matrix.os }}
-          steps:
-            - uses: actions/setup-node@v4
-              with:
-                node-version: ${{ matrix.node }}
-            - run: npm test
-      ```
+    ```yaml
+    jobs:
+      test:
+        strategy:
+          matrix:
+            os: [ubuntu-latest, macos-latest]
+            node: [18, 20]
+        runs-on: ${{ matrix.os }}
+        steps:
+          - uses: actions/setup-node@v4
+            with:
+              node-version: ${{ matrix.node }}
+          - run: npm test
+    ```
 
-      **Key insight:** The matrix strategy calculates the Cartesian product of all defined dimensions and runs each variant as an independent job.
-    key_points:
-      - "A matrix strategy generates parallel job combinations from lists of variables"
-      - "Access combination variables using the ${{ matrix.<variable> }} context"
-      - "Total generated jobs equals the product of each variable dimension's length"
+    **Key insight:** The matrix strategy calculates the Cartesian product of all defined dimensions and runs each variant as an independent job.
+  key_points:
+  - "A matrix strategy generates parallel job combinations from lists of variables"
+  - "Access combination variables using the ${{ matrix.<variable> }} context"
+  - "Total generated jobs equals the product of each variable dimension's length"
 
-  - title: "Customizing with `include` and `exclude`"
-    content: |
-      Real-world projects often have exceptions: certain language versions might not support Windows, or one combination needs an extra compiler flag.
+  diagram:
+    title: Multi-Dimensional Matrix Fan-Out (2 × 3 = 6 Parallel Jobs)
+    diagram: "strategy:\n                       matrix:\n                        \
+      \ os: [ubuntu-latest, macos-latest]\n                         node: [18, 20,
+      22]\n\n     Matrix Fan-Out (runs 6 isolated jobs concurrently):\n     ├── [Job
+      1] os: ubuntu-latest  │  node: 18  ──▶  Runner 1\n     ├── [Job 2] os: ubuntu-latest\
+      \  │  node: 20  ──▶  Runner 2\n     ├── [Job 3] os: ubuntu-latest  │  node:
+      22  ──▶  Runner 3\n     ├── [Job 4] os: macos-latest   │  node: 18  ──▶  Runner
+      4\n     ├── [Job 5] os: macos-latest   │  node: 20  ──▶  Runner 5\n     └──
+      [Job 6] os: macos-latest   │  node: 22  ──▶  Runner 6"
+- title: "Customizing with `include` and `exclude`"
+  content: |
+    Real-world projects often have exceptions: certain language versions might not support Windows, or one combination needs an extra compiler flag.
 
-      **Excluding Incompatible Combinations:**
-      Use `exclude:` to drop specific combinations from the Cartesian product:
+    **Excluding Incompatible Combinations:**
+    Use `exclude:` to drop specific combinations from the Cartesian product:
 
-      ```yaml
-      strategy:
-        matrix:
-          os: [ubuntu-latest, windows-latest, macos-latest]
-          python: ["3.10", "3.11", "3.12"]
-          exclude:
-            # Drop Python 3.10 on macOS (unsupported legacy)
-            - os: macos-latest
-              python: "3.10"
-      ```
+    ```yaml
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.10", "3.11", "3.12"]
+        exclude:
+          # Drop Python 3.10 on macOS (unsupported legacy)
+          - os: macos-latest
+            python: "3.10"
+    ```
 
-      **Including Special Configurations:**
-      Use `include:` to add a standalone combination or inject extra metadata into existing combinations:
+    **Including Special Configurations:**
+    Use `include:` to add a standalone combination or inject extra metadata into existing combinations:
 
-      ```yaml
-      strategy:
-        matrix:
-          os: [ubuntu-latest, windows-latest]
-          include:
-            # Injects extra CC compiler flag into ubuntu-latest
-            - os: ubuntu-latest
-              compiler: gcc
-            # Adds an entirely new combination not in the standard grid
-            - os: macos-latest
-              compiler: clang
-      ```
+    ```yaml
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        include:
+          # Injects extra CC compiler flag into ubuntu-latest
+          - os: ubuntu-latest
+            compiler: gcc
+          # Adds an entirely new combination not in the standard grid
+          - os: macos-latest
+            compiler: clang
+    ```
 
-      **Key insight:** `exclude` removes unwanted combinations from the grid; `include` either adds new unique jobs or injects specific variables into matching combinations.
-    key_points:
-      - "Use 'exclude:' to filter out unsupported OS and version combinations"
-      - "Use 'include:' to append unique combinations or add extra keys to matching rows"
-      - "Extra keys injected via 'include' are accessed normally with ${{ matrix.<key> }}"
+    **Key insight:** `exclude` removes unwanted combinations from the grid; `include` either adds new unique jobs or injects specific variables into matching combinations.
+  key_points:
+  - "Use 'exclude:' to filter out unsupported OS and version combinations"
+  - "Use 'include:' to append unique combinations or add extra keys to matching rows"
+  - "Extra keys injected via 'include' are accessed normally with ${{ matrix.<key>
+    }}"
 
-  - title: "Controlling Execution: `fail-fast` and `max-parallel`"
-    content: |
-      By default, GitHub Actions cancels **all other in-progress matrix jobs** the moment any single matrix job fails. This behavior is controlled by `fail-fast`.
+- title: "Controlling Execution: `fail-fast` and `max-parallel`"
+  content: |
+    By default, GitHub Actions cancels **all other in-progress matrix jobs** the moment any single matrix job fails. This behavior is controlled by `fail-fast`.
 
-      **Why Disable fail-fast?**
-      If a build breaks on Windows, you usually still want to know whether it also broke on Ubuntu and macOS, rather than having them abruptly terminated.
+    **Why Disable fail-fast?**
+    If a build breaks on Windows, you usually still want to know whether it also broke on Ubuntu and macOS, rather than having them abruptly terminated.
 
-      ```yaml
-      strategy:
-        fail-fast: false   # Do not cancel siblings when one job fails
-        max-parallel: 4    # Maximum concurrent jobs to run simultaneously
-        matrix:
-          python: ["3.9", "3.10", "3.11", "3.12"]
-          os: [ubuntu-latest, windows-latest, macos-latest]
-      ```
+    ```yaml
+    strategy:
+      fail-fast: false   # Do not cancel siblings when one job fails
+      max-parallel: 4    # Maximum concurrent jobs to run simultaneously
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    ```
 
-      **When to use `max-parallel`:**
-      - Preventing test suites from overwhelming shared staging databases.
-      - Respecting rate limits on external APIs or self-hosted runner capacity.
+    **When to use `max-parallel`:**
+    - Preventing test suites from overwhelming shared staging databases.
+    - Respecting rate limits on external APIs or self-hosted runner capacity.
 
-      **Key insight:** Always set `fail-fast: false` on compatibility test matrices so you get a complete diagnostic picture across all platforms in a single workflow run.
-    key_points:
-      - "fail-fast is true by default: one failure halts the entire matrix"
-      - "Set fail-fast: false to ensure all platform combinations run to completion"
-      - "max-parallel throttles concurrency to protect infrastructure or rate limits"
+    **Key insight:** Always set `fail-fast: false` on compatibility test matrices so you get a complete diagnostic picture across all platforms in a single workflow run.
+  key_points:
+  - "fail-fast is true by default: one failure halts the entire matrix"
+  - "Set fail-fast: false to ensure all platform combinations run to completion"
+  - "max-parallel throttles concurrency to protect infrastructure or rate limits"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect Installed Python Version"
-    instructions: |
-      **What we're doing:** Inspect the currently active Python interpreter version.
+- id: "cmd-01"
+  title: "Inspect Installed Python Version"
+  instructions: |
+    **What we're doing:** Inspect the currently active Python interpreter version.
 
-      **Why this matters:** In CI matrix jobs, setup actions like `actions/setup-python` switch the active interpreter version dynamically per matrix row.
+    **Why this matters:** In CI matrix jobs, setup actions like `actions/setup-python` switch the active interpreter version dynamically per matrix row.
 
-      **The command pattern:**
-      ```
-      python3 --version
-      ```
+    **The command pattern:**
+    ```
+    python3 --version
+    ```
 
-      Run this command:
-    command_hint: "python3 --version"
-    validation:
-      type: "command_output"
-      command: "python3 --version"
-      expected_contains: "Python 3."
-    points: 10
+    Run this command:
+  command_hint: "python3 --version"
+  validation:
+    type: "command_output"
+    command: "python3 --version"
+    expected_contains: "Python 3."
+  points: 10
 
 scenarios:
-  - id: "fix-matrix-context-reference"
-    title: "Fix Matrix Context Reference Typo"
-    description: |
-      The developer configured a matrix for `node-version`, but inside the step, they accidentally referenced `${{ env.node-version }}` instead of `${{ matrix.node-version }}`.
-      Edit `.github/workflows/ci.yml` and correct the context reference.
-    manifest: |
-      name: Multi-Node Build
-      on: [push]
-      jobs:
-        build:
-          strategy:
-            matrix:
-              node-version: [18, 20, 22]
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/setup-node@v4
-              with:
-                node-version: ${{ env.node-version }}
-            - run: node -v
-    hints:
-      - "Variables defined under strategy.matrix must be referenced via the 'matrix' context."
-      - "Replace '${{ env.node-version }}' with '${{ matrix.node-version }}'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-matrix-context-reference"
+  title: "Fix Matrix Context Reference Typo"
+  description: |
+    The developer configured a matrix for `node-version`, but inside the step, they accidentally referenced `${{ env.node-version }}` instead of `${{ matrix.node-version }}`.
+    Edit `.github/workflows/ci.yml` and correct the context reference.
+  manifest: |
+    name: Multi-Node Build
+    on: [push]
+    jobs:
+      build:
+        strategy:
+          matrix:
+            node-version: [18, 20, 22]
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/setup-node@v4
+            with:
+              node-version: ${{ env.node-version }}
+          - run: node -v
+  hints:
+  - "Variables defined under strategy.matrix must be referenced via the 'matrix' context."
+  - "Replace '${{ env.node-version }}' with '${{ matrix.node-version }}'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.test.steps
+      has_step_with_run: matrix.
+      message: Step must reference ${{ matrix.<var> }} context.
+  points: 25
 
-  - id: "disable-matrix-fail-fast"
-    title: "Disable Fail-Fast on Test Matrix"
-    description: |
-      When one OS fails, other platform runs are prematurely canceled.
-      Edit `.github/workflows/ci.yml` to set `fail-fast: false` under the `strategy:` block so all matrix variations run to completion.
-    manifest: |
-      name: Cross Platform Tests
-      on: [push]
-      jobs:
-        test:
-          strategy:
-            matrix:
-              os: [ubuntu-latest, windows-latest, macos-latest]
-          runs-on: ${{ matrix.os }}
-          steps:
-            - run: echo "Testing on ${{ matrix.os }}"
-    hints:
-      - "Add 'fail-fast: false' directly under the 'strategy:' key."
-      - "Keep the existing 'matrix:' definition indented alongside fail-fast."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "disable-matrix-fail-fast"
+  title: "Disable Fail-Fast on Test Matrix"
+  description: |
+    When one OS fails, other platform runs are prematurely canceled.
+    Edit `.github/workflows/ci.yml` to set `fail-fast: false` under the `strategy:` block so all matrix variations run to completion.
+  manifest: |
+    name: Cross Platform Tests
+    on: [push]
+    jobs:
+      test:
+        strategy:
+          matrix:
+            os: [ubuntu-latest, windows-latest, macos-latest]
+        runs-on: ${{ matrix.os }}
+        steps:
+          - run: echo "Testing on ${{ matrix.os }}"
+  hints:
+  - "Add 'fail-fast: false' directly under the 'strategy:' key."
+  - "Keep the existing 'matrix:' definition indented alongside fail-fast."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.test.strategy.fail-fast
+      equals: false
+      message: 'Strategy must set fail-fast: false.'
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "If a matrix defines 'os: [ubuntu, windows]' and 'python: [3.10, 3.11, 3.12]', how many jobs are generated?"
-      options:
-        - "6"
-        - "5"
-        - "3"
-        - "2"
-      correct: "6"
-      explanation: "GitHub Actions generates the Cartesian product: 2 OS values × 3 Python versions = 6 jobs."
-      points: 10
+  - type: "multiple_choice"
+    question: "If a matrix defines 'os: [ubuntu, windows]' and 'python: [3.10, 3.11,
+      3.12]', how many jobs are generated?"
+    options:
+    - "6"
+    - "5"
+    - "3"
+    - "2"
+    correct: "6"
+    explanation: "GitHub Actions generates the Cartesian product: 2 OS values × 3
+      Python versions = 6 jobs."
+    points: 10
 
-    - type: "true_false"
-      question: "By default, if one matrix job fails, GitHub Actions continues running all other active matrix jobs."
-      correct: false
-      explanation: "fail-fast is true by default; GitHub Actions cancels all remaining sibling matrix jobs as soon as one fails."
-      points: 10
+  - type: "true_false"
+    question: "By default, if one matrix job fails, GitHub Actions continues running
+      all other active matrix jobs."
+    correct: false
+    explanation: "fail-fast is true by default; GitHub Actions cancels all remaining
+      sibling matrix jobs as soon as one fails."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "Which strategy key allows you to inject unique variables into a specific matrix combination?"
-      options:
-        - "include"
-        - "exclude"
-        - "inject"
-        - "extend"
-      correct: "include"
-      explanation: "The 'include' block matches existing combinations to inject additional keys or creates novel combinations."
-      points: 10
+  - type: "multiple_choice"
+    question: "Which strategy key allows you to inject unique variables into a specific
+      matrix combination?"
+    options:
+    - "include"
+    - "exclude"
+    - "inject"
+    - "extend"
+    correct: "include"
+    explanation: "The 'include' block matches existing combinations to inject additional
+      keys or creates novel combinations."
+    points: 10
 
-    - type: "fill_yaml"
-      question: "Fill in the missing key that defines variable dimensions under strategy:"
-      yaml_template: |
-        strategy:
-          <BLANK>:
-            os: [ubuntu-latest, macos-latest]
-      expected: "matrix"
-      explanation: "The 'matrix' key defines the variable lists whose combinations run in parallel."
-      points: 10
+  - type: "fill_yaml"
+    question: "Fill in the missing key that defines variable dimensions under strategy:"
+    yaml_template: |
+      strategy:
+        <BLANK>:
+          os: [ubuntu-latest, macos-latest]
+    expected: "matrix"
+    explanation: "The 'matrix' key defines the variable lists whose combinations run
+      in parallel."
+    points: 10

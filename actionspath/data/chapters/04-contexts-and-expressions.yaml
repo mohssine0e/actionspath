@@ -1,207 +1,220 @@
 chapter:
   number: 4
   title: "Contexts & Expressions"
-  description: "Master workflow contexts (github, env, job, steps) and evaluate dynamic expressions."
+  description: "Master workflow contexts (github, env, job, steps) and evaluate dynamic
+    expressions."
 
 concepts:
-  - title: "What are Contexts?"
-    content: |
-      Workflows cannot be static scripts; they must react dynamically to the commit, branch, pull request, and user triggering the run.
+- title: "What are Contexts?"
+  content: |
+    Workflows cannot be static scripts; they must react dynamically to the commit, branch, pull request, and user triggering the run.
 
-      **The Flight Manifest Analogy**
+    **The Flight Manifest Analogy**
 
-      When an airplane takes flight, the crew receives a **flight manifest**: passenger names, destination, fuel levels, and current weather. The crew doesn't invent this data; the airline supplies it.
+    When an airplane takes flight, the crew receives a **flight manifest**: passenger names, destination, fuel levels, and current weather. The crew doesn't invent this data; the airline supplies it.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │               GITHUB CONTEXT (Flight Manifest)         │
-      │                                                        │
-      │  github.actor      ──► "octocat" (who triggered it)    │
-      │  github.ref_name   ──► "main" (branch name)            │
-      │  github.sha        ──► "e3b0c442..." (commit hash)     │
-      │  github.event_name ──► "pull_request" (event type)     │
-      │  runner.os         ──► "Linux" (host OS)               │
-      └────────────────────────────────────────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │               GITHUB CONTEXT (Flight Manifest)         │
+    │                                                        │
+    │  github.actor      ──► "octocat" (who triggered it)    │
+    │  github.ref_name   ──► "main" (branch name)            │
+    │  github.sha        ──► "e3b0c442..." (commit hash)     │
+    │  github.event_name ──► "pull_request" (event type)     │
+    │  runner.os         ──► "Linux" (host OS)               │
+    └────────────────────────────────────────────────────────┘
+    ```
 
-      **Contexts** are collections of information that GitHub Actions provides to your workflow. You access context data using the expression syntax: `${{ <context>.<property> }}`.
+    **Contexts** are collections of information that GitHub Actions provides to your workflow. You access context data using the expression syntax: `${{ <context>.<property> }}`.
 
-      **Common Context Types:**
-      - `github`: Information about the workflow run and repository.
-      - `env`: Environment variables set in the workflow.
-      - `job`: Information about the currently running job.
-      - `steps`: Outputs and statuses from earlier steps in the job.
-      - `runner`: Information about the machine running the job.
+    **Common Context Types:**
+    - `github`: Information about the workflow run and repository.
+    - `env`: Environment variables set in the workflow.
+    - `job`: Information about the currently running job.
+    - `steps`: Outputs and statuses from earlier steps in the job.
+    - `runner`: Information about the machine running the job.
 
-      **Key insight:** Contexts allow a single workflow file to adapt its behavior across different branches, users, and events.
-    key_points:
-      - "Contexts provide read-only metadata about the repository, run, and runner"
-      - "Access properties using ${{ context.property }} syntax"
-      - "Top contexts include github, env, job, steps, and runner"
+    **Key insight:** Contexts allow a single workflow file to adapt its behavior across different branches, users, and events.
+  key_points:
+  - "Contexts provide read-only metadata about the repository, run, and runner"
+  - "Access properties using ${{ context.property }} syntax"
+  - "Top contexts include github, env, job, steps, and runner"
 
-  - title: "The `github` Context"
-    content: |
-      The `github` context is the most frequently used source of truth in your CI/CD pipelines.
+- title: "The `github` Context"
+  content: |
+    The `github` context is the most frequently used source of truth in your CI/CD pipelines.
 
-      **Essential Properties:**
-      - `github.actor`: The username of the person who initiated the workflow run.
-      - `github.ref_name`: The short name of the branch or tag (e.g. `main` or `v1.0.0`).
-      - `github.ref`: The full Git reference path (e.g. `refs/heads/main` or `refs/tags/v1.0.0`).
-      - `github.sha`: The full 40-character commit SHA being tested.
-      - `github.repository`: The owner and repository name (e.g. `octocat/Hello-World`).
+    **Essential Properties:**
+    - `github.actor`: The username of the person who initiated the workflow run.
+    - `github.ref_name`: The short name of the branch or tag (e.g. `main` or `v1.0.0`).
+    - `github.ref`: The full Git reference path (e.g. `refs/heads/main` or `refs/tags/v1.0.0`).
+    - `github.sha`: The full 40-character commit SHA being tested.
+    - `github.repository`: The owner and repository name (e.g. `octocat/Hello-World`).
 
-      **Practical Usage:**
-      You can interpolate contexts directly into step names and command strings:
+    **Practical Usage:**
+    You can interpolate contexts directly into step names and command strings:
 
-      ```yaml
-      - name: Deploying commit ${{ github.sha }} by ${{ github.actor }}
-        run: |
-          echo "Current branch: ${{ github.ref_name }}"
-          echo "Target repo: ${{ github.repository }}"
-      ```
+    ```yaml
+    - name: Deploying commit ${{ github.sha }} by ${{ github.actor }}
+      run: |
+        echo "Current branch: ${{ github.ref_name }}"
+        echo "Target repo: ${{ github.repository }}"
+    ```
 
-      **Key insight:** Use `github.ref_name` when you need clean branch names, and `github.sha` for immutable artifact tagging.
-    key_points:
-      - "github.actor identifies the user who triggered the run"
-      - "github.ref_name provides the branch name without the refs/heads/ prefix"
-      - "github.sha provides the exact commit hash for reproducible builds"
+    **Key insight:** Use `github.ref_name` when you need clean branch names, and `github.sha` for immutable artifact tagging.
+  key_points:
+  - "github.actor identifies the user who triggered the run"
+  - "github.ref_name provides the branch name without the refs/heads/ prefix"
+  - "github.sha provides the exact commit hash for reproducible builds"
 
-  - title: "Expressions and Operators"
-    content: |
-      You can evaluate logic, comparisons, and string operations directly inside the `${{ ... }}` expression block.
+- title: "Expressions and Operators"
+  content: |
+    You can evaluate logic, comparisons, and string operations directly inside the `${{ ... }}` expression block.
 
-      **String and Array Functions:**
-      - `contains(search, item)`: Checks if a string or array contains an item.
-      - `startsWith(string, prefix)`: Returns true if string begins with prefix.
-      - `format('Build #{0} on {1}', github.run_number, runner.os)`: Formats strings.
+    **String and Array Functions:**
+    - `contains(search, item)`: Checks if a string or array contains an item.
+    - `startsWith(string, prefix)`: Returns true if string begins with prefix.
+    - `format('Build #{0} on {1}', github.run_number, runner.os)`: Formats strings.
 
-      ```yaml
-      # Check if this is a release tag build
-      if: startsWith(github.ref, 'refs/tags/v')
+    ```yaml
+    # Check if this is a release tag build
+    if: startsWith(github.ref, 'refs/tags/v')
 
-      # Check if commit message contains [skip ci]
-      if: "!contains(github.event.head_commit.message, '[skip ci]')"
-      ```
+    # Check if commit message contains [skip ci]
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    ```
 
-      **Ternary Operations:**
-      You can emulate if-then-else conditions inside expressions using `&&` and `||`:
-      ```yaml
-      env:
-        ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
-      ```
+    **Ternary Operations:**
+    You can emulate if-then-else conditions inside expressions using `&&` and `||`:
+    ```yaml
+    env:
+      ENVIRONMENT: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    ```
 
-      **Rule:** Never nest `${{ }}` inside another `${{ }}` block. Inside the expression brackets, variables are referenced bare.
+    **Rule:** Never nest `${{ }}` inside another `${{ }}` block. Inside the expression brackets, variables are referenced bare.
 
-      **Key insight:** Expressions let you conditionally control step execution and dynamically calculate environment variables.
-    key_points:
-      - "Built-in functions include contains(), startsWith(), endsWith(), and format()"
-      - "Use && and || to construct inline ternary expressions"
-      - "Do NOT nest ${{ }} tags inside another expression block"
+    **Key insight:** Expressions let you conditionally control step execution and dynamically calculate environment variables.
+  key_points:
+  - "Built-in functions include contains(), startsWith(), endsWith(), and format()"
+  - "Use && and || to construct inline ternary expressions"
+  - "Do NOT nest ${{ }} tags inside another expression block"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Check Current Git Branch"
-    instructions: |
-      **What we're doing:** Inspect your current workspace branch name.
+- id: "cmd-01"
+  title: "Check Current Git Branch"
+  instructions: |
+    **What we're doing:** Inspect your current workspace branch name.
 
-      **Why this matters:** In workflows, `${{ github.ref_name }}` resolves to the current branch name (e.g. `main`).
+    **Why this matters:** In workflows, `${{ github.ref_name }}` resolves to the current branch name (e.g. `main`).
 
-      **The command pattern:**
-      ```
-      git branch --show-current
-      ```
+    **The command pattern:**
+    ```
+    git branch --show-current
+    ```
 
-      Run this command:
-    command_hint: "git branch --show-current"
-    validation:
-      type: "command_output"
-      command: "git branch --show-current"
-      expected_contains: "main"
-    points: 10
+    Run this command:
+  command_hint: "git branch --show-current"
+  validation:
+    type: "command_output"
+    command: "git branch --show-current"
+    expected_contains: "main"
+  points: 10
 
 scenarios:
-  - id: "fix-nested-expressions"
-    title: "Fix Invalid Nested Expression Syntax"
-    description: |
-      A junior developer attempted to use contexts inside an expression, but accidentally nested `${{ }}` tags inside another expression block: `${{ format('Commit: {0}', ${{ github.sha }}) }}`.
-      Fix `.github/workflows/ci.yml` by removing the inner `${{ }}` wrapper so the expression reads bare variables: `format('Commit: {0}', github.sha)`.
-    manifest: |
-      name: Expression Test
-      on: [push]
-      jobs:
-        build:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - name: Echo Commit
-              run: echo "${{ format('Commit: {0}', ${{ github.sha }}) }}"
-    hints:
-      - "You must never nest ${{ }} inside another ${{ }} expression block."
-      - "Change '${{ github.sha }}' to simply 'github.sha' inside the format() call."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-nested-expressions"
+  title: "Fix Invalid Nested Expression Syntax"
+  description: |
+    A junior developer attempted to use contexts inside an expression, but accidentally nested `${{ }}` tags inside another expression block: `${{ format('Commit: {0}', ${{ github.sha }}) }}`.
+    Fix `.github/workflows/ci.yml` by removing the inner `${{ }}` wrapper so the expression reads bare variables: `format('Commit: {0}', github.sha)`.
+  manifest: |
+    name: Expression Test
+    on: [push]
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Echo Commit
+            run: echo "${{ format('Commit: {0}', ${{ github.sha }}) }}"
+  hints:
+  - "You must never nest ${{ }} inside another ${{ }} expression block."
+  - "Change '${{ github.sha }}' to simply 'github.sha' inside the format() call."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.notify.steps.0.run
+      not_contains: ${{ ${{
+      message: Nested expression syntax ${{ ${{ is forbidden.
+  points: 25
 
-  - id: "enforce-main-branch-condition"
-    title: "Enforce Production Deploy Condition"
-    description: |
-      The deploy job is currently running on every feature branch!
-      Update `.github/workflows/ci.yml` to add an `if:` condition to the `deploy` job so it only runs when:
-      `if: github.ref_name == 'main'`
-    manifest: |
-      name: Delivery Pipeline
-      on: [push]
-      jobs:
-        test:
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Running tests..."
-        deploy:
-          needs: test
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Deploying to production..."
-    hints:
-      - "Add an 'if:' condition directly under the 'deploy:' job key."
-      - "Use the expression: github.ref_name == 'main' (quotes around if are optional)."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "enforce-main-branch-condition"
+  title: "Enforce Production Deploy Condition"
+  description: |
+    The deploy job is currently running on every feature branch!
+    Update `.github/workflows/ci.yml` to add an `if:` condition to the `deploy` job so it only runs when:
+    `if: github.ref_name == 'main'`
+  manifest: |
+    name: Delivery Pipeline
+    on: [push]
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Running tests..."
+      deploy:
+        needs: test
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Deploying to production..."
+  hints:
+  - "Add an 'if:' condition directly under the 'deploy:' job key."
+  - "Use the expression: github.ref_name == 'main' (quotes around if are optional)."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.deploy.if
+      contains: main
+      message: Deploy job must contain an 'if' condition checking for the main 
+        branch.
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "Which context property returns the clean branch name without the 'refs/heads/' prefix?"
-      options:
-        - "github.ref_name"
-        - "github.ref"
-        - "github.branch"
-        - "github.head"
-      correct: "github.ref_name"
-      points: 10
+  - type: "multiple_choice"
+    question: "Which context property returns the clean branch name without the 'refs/heads/'
+      prefix?"
+    options:
+    - "github.ref_name"
+    - "github.ref"
+    - "github.branch"
+    - "github.head"
+    correct: "github.ref_name"
+    points: 10
 
-    - type: "true_false"
-      question: "You can nest ${{ }} tags inside an existing ${{ }} expression block to reference variables."
-      correct: false
-      points: 10
+  - type: "true_false"
+    question: "You can nest ${{ }} tags inside an existing ${{ }} expression block
+      to reference variables."
+    correct: false
+    points: 10
 
-    - type: "multiple_choice"
-      question: "Which expression function checks if a string begins with a given prefix?"
-      options:
-        - "startsWith()"
-        - "hasPrefix()"
-        - "beginsWith()"
-        - "prefix()"
-      correct: "startsWith()"
-      points: 10
+  - type: "multiple_choice"
+    question: "Which expression function checks if a string begins with a given prefix?"
+    options:
+    - "startsWith()"
+    - "hasPrefix()"
+    - "beginsWith()"
+    - "prefix()"
+    correct: "startsWith()"
+    points: 10
 
-    - type: "fill_yaml"
-      question: "Fill in the missing context property to read the Git commit SHA:"
-      yaml_template: |
-        - name: Print Commit Hash
-          run: echo "Commit is ${{ github.<BLANK> }}"
-      expected: "sha"
-      explanation: "github.sha resolves to the full 40-character commit hash triggering the workflow run."
-      points: 10
+  - type: "fill_yaml"
+    question: "Fill in the missing context property to read the Git commit SHA:"
+    yaml_template: |
+      - name: Print Commit Hash
+        run: echo "Commit is ${{ github.<BLANK> }}"
+    expected: "sha"
+    explanation: "github.sha resolves to the full 40-character commit hash triggering
+      the workflow run."
+    points: 10

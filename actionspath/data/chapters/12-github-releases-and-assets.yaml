@@ -1,217 +1,241 @@
 chapter:
   number: 12
   title: "GitHub Releases & Asset Distribution"
-  description: "Automate GitHub Releases on Git tag pushes, generate release notes, and attach compiled binaries using softprops/action-gh-release."
+  description: "Automate GitHub Releases on Git tag pushes, generate release notes,
+    and attach compiled binaries using softprops/action-gh-release."
 
 concepts:
-  - title: "From Git Tags to Official Releases"
-    content: |
-      Commits represent ongoing work; **Releases** represent stable, downloadable versions for end users.
+- title: "From Git Tags to Official Releases"
+  content: |
+    Commits represent ongoing work; **Releases** represent stable, downloadable versions for end users.
 
-      **The Certificate of Authenticity Analogy**
+    **The Certificate of Authenticity Analogy**
 
-      Any factory worker can assemble parts on the production line (a commit). But when the master inspector stamps an official serial number on a box and signs the warranty papers (a Git tag), that product becomes a certified release available on retail shelves.
+    Any factory worker can assemble parts on the production line (a commit). But when the master inspector stamps an official serial number on a box and signs the warranty papers (a Git tag), that product becomes a certified release available on retail shelves.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │ DEVELOPER ACTIONS                                      │
-      │  git tag -a v1.0.0 -m "Release v1.0.0"                 │
-      │  git push origin v1.0.0                                │
-      └──────────────────────────┬─────────────────────────────┘
-                                 │ Triggers workflow on tag
-                                 ▼
-      ┌────────────────────────────────────────────────────────┐
-      │ GITHUB ACTIONS RELEASE WORKFLOW                        │
-      │                                                        │
-      │  1. Check out tag v1.0.0                               │
-      │  2. Build binaries (e.g. app-linux-x64, app-darwin-arm)│
-      │  3. softprops/action-gh-release                        │
-      │     - Creates GitHub Release "Release v1.0.0"          │
-      │     - Auto-generates changelog from merged PRs         │
-      │     - Uploads executable binaries as release assets    │
-      └────────────────────────────────────────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │ DEVELOPER ACTIONS                                      │
+    │  git tag -a v1.0.0 -m "Release v1.0.0"                 │
+    │  git push origin v1.0.0                                │
+    └──────────────────────────┬─────────────────────────────┘
+                               │ Triggers workflow on tag
+                               ▼
+    ┌────────────────────────────────────────────────────────┐
+    │ GITHUB ACTIONS RELEASE WORKFLOW                        │
+    │                                                        │
+    │  1. Check out tag v1.0.0                               │
+    │  2. Build binaries (e.g. app-linux-x64, app-darwin-arm)│
+    │  3. softprops/action-gh-release                        │
+    │     - Creates GitHub Release "Release v1.0.0"          │
+    │     - Auto-generates changelog from merged PRs         │
+    │     - Uploads executable binaries as release assets    │
+    └────────────────────────────────────────────────────────┘
+    ```
 
-      **Tag Trigger Syntax:**
-      To trigger workflows strictly on release tags, use glob patterns under `tags:`:
+    **Tag Trigger Syntax:**
+    To trigger workflows strictly on release tags, use glob patterns under `tags:`:
 
-      ```yaml
-      on:
-        push:
-          tags:
-            - 'v*.*.*'
-      ```
+    ```yaml
+    on:
+      push:
+        tags:
+          - 'v*.*.*'
+    ```
 
-      **Key insight:** Workflows triggered by tags ensure releases are completely reproducible from clean Git references.
-    key_points:
-      - "Releases package tagged Git commits into user-facing software distributions"
-      - "Filter triggers using 'push.tags' with semver globs like 'v*.*.*'"
-      - "Artifacts attached to releases are permanently downloadable by the public"
+    **Key insight:** Workflows triggered by tags ensure releases are completely reproducible from clean Git references.
+  key_points:
+  - "Releases package tagged Git commits into user-facing software distributions"
+  - "Filter triggers using 'push.tags' with semver globs like 'v*.*.*'"
+  - "Artifacts attached to releases are permanently downloadable by the public"
 
-  - title: "Automating Releases with `action-gh-release`"
-    content: |
-      The community-standard action for creating releases and attaching assets is `softprops/action-gh-release`.
+- title: "Automating Releases with `action-gh-release`"
+  content: |
+    The community-standard action for creating releases and attaching assets is `softprops/action-gh-release`.
 
-      **Configuration Example:**
-      ```yaml
-      name: Create Release
-      on:
-        push:
-          tags:
-            - 'v*'
+    **Configuration Example:**
+    ```yaml
+    name: Create Release
+    on:
+      push:
+        tags:
+          - 'v*'
 
-      permissions:
-        contents: write  # Crucial: Required to create releases and push tags
+    permissions:
+      contents: write  # Crucial: Required to create releases and push tags
 
-      jobs:
-        release:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - name: Package Distributable
-              run: tar -czvf actionspath-linux.tar.gz dist/
+    jobs:
+      release:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - name: Package Distributable
+            run: tar -czvf actionspath-linux.tar.gz dist/
 
-            - name: Publish GitHub Release
-              uses: softprops/action-gh-release@v2
-              with:
-                files: actionspath-linux.tar.gz
-                generate_release_notes: true
-                draft: false
-                prerelease: false
-      ```
+          - name: Publish GitHub Release
+            uses: softprops/action-gh-release@v2
+            with:
+              files: actionspath-linux.tar.gz
+              generate_release_notes: true
+              draft: false
+              prerelease: false
+    ```
 
-      **Critical Security Permission:**
-      By default, `GITHUB_TOKEN` has read-only access. You **must** declare `permissions: contents: write` at the workflow or job level; otherwise, release creation will fail with a 403 Forbidden error.
+    **Critical Security Permission:**
+    By default, `GITHUB_TOKEN` has read-only access. You **must** declare `permissions: contents: write` at the workflow or job level; otherwise, release creation will fail with a 403 Forbidden error.
 
-      **Key insight:** Setting `generate_release_notes: true` automatically populates the release description with titles and authors of all PRs merged since the last tag.
-    key_points:
-      - "softprops/action-gh-release creates releases and uploads asset files"
-      - "The workflow requires 'permissions: contents: write' to create releases"
-      - "generate_release_notes: true builds automatic release changelogs"
+    **Key insight:** Setting `generate_release_notes: true` automatically populates the release description with titles and authors of all PRs merged since the last tag.
+  key_points:
+  - "softprops/action-gh-release creates releases and uploads asset files"
+  - "The workflow requires 'permissions: contents: write' to create releases"
+  - "generate_release_notes: true builds automatic release changelogs"
 
-  - title: "Release Options: Drafts and Pre-Releases"
-    content: |
-      Not every release is ready for immediate public consumption.
+- title: "Release Options: Drafts and Pre-Releases"
+  content: |
+    Not every release is ready for immediate public consumption.
 
-      **Draft Releases:**
-      Setting `draft: true` creates an unpublished release visible only to repository contributors. This allows your team to review the changelog and verify uploaded binaries before clicking "Publish".
+    **Draft Releases:**
+    Setting `draft: true` creates an unpublished release visible only to repository contributors. This allows your team to review the changelog and verify uploaded binaries before clicking "Publish".
 
-      **Pre-Releases (Alpha / Beta):**
-      Setting `prerelease: true` flags the release as an unstable preview. Package managers and users will not install it unless explicitly requesting pre-release versions.
+    **Pre-Releases (Alpha / Beta):**
+    Setting `prerelease: true` flags the release as an unstable preview. Package managers and users will not install it unless explicitly requesting pre-release versions.
 
-      ```yaml
-      with:
-        # Marks as pre-release if tag contains '-rc' or '-alpha'
-        prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-alpha') }}
-        draft: false
-      ```
+    ```yaml
+    with:
+      # Marks as pre-release if tag contains '-rc' or '-alpha'
+      prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-alpha') }}
+      draft: false
+    ```
 
-      **Key insight:** Dynamically setting `prerelease` based on tag patterns allows the same workflow to handle both alpha testing and stable production releases.
-    key_points:
-      - "draft: true holds the release for manual review before making it public"
-      - "prerelease: true marks builds as alpha, beta, or release candidates"
-      - "Use expression functions to dynamically toggle prerelease status"
+    **Key insight:** Dynamically setting `prerelease` based on tag patterns allows the same workflow to handle both alpha testing and stable production releases.
+  key_points:
+  - "draft: true holds the release for manual review before making it public"
+  - "prerelease: true marks builds as alpha, beta, or release candidates"
+  - "Use expression functions to dynamically toggle prerelease status"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect Local Git Tags"
-    instructions: |
-      **What we're doing:** List the Git tags present in the local repository.
+- id: "cmd-01"
+  title: "Inspect Local Git Tags"
+  instructions: |
+    **What we're doing:** List the Git tags present in the local repository.
 
-      **Why this matters:** In release automation, tags trigger workflows and define version numbers.
+    **Why this matters:** In release automation, tags trigger workflows and define version numbers.
 
-      **The command pattern:**
-      ```
-      git tag -l
-      ```
+    **The command pattern:**
+    ```
+    git tag -l
+    ```
 
-      Run this command:
-    command_hint: "git tag -l"
-    validation:
-      type: "command_output"
-      command: "git tag -l || true"
-      expected_contains: ""
-    points: 10
+    Run this command:
+  command_hint: "git tag -l"
+  validation:
+    type: "command_output"
+    command: "git tag -l || true"
+    expected_contains: ""
+  points: 10
 
 scenarios:
-  - id: "fix-release-permissions"
-    title: "Grant Contents Write Permission for Release"
-    description: |
-      The release job fails with `HttpError: Resource not accessible by integration (403)` because the runner token lacks write permissions.
-      Edit `.github/workflows/ci.yml` and add `permissions: contents: write` to the `release` job.
-    manifest: |
-      name: Release
-      on:
-        push:
-          tags:
-            - 'v*'
-      jobs:
-        release:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - uses: softprops/action-gh-release@v2
-              with:
-                generate_release_notes: true
-    hints:
-      - "Add 'permissions:' directly under the 'release:' job header."
-      - "Include 'contents: write'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-release-permissions"
+  title: "Grant Contents Write Permission for Release"
+  description: |
+    The release job fails with `HttpError: Resource not accessible by integration (403)` because the runner token lacks write permissions.
+    Edit `.github/workflows/ci.yml` and add `permissions: contents: write` to the `release` job.
+  manifest: |
+    name: Release
+    on:
+      push:
+        tags:
+          - 'v*'
+    jobs:
+      release:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: softprops/action-gh-release@v2
+            with:
+              generate_release_notes: true
+  hints:
+  - "Add 'permissions:' directly under the 'release:' job header."
+  - "Include 'contents: write'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.release.permissions.contents
+      equals: write
+      message: 'Release job requires contents: write permission.'
+  points: 25
 
-  - id: "restrict-trigger-to-version-tags"
-    title: "Restrict Trigger to Version Tags"
-    description: |
-      The workflow is currently triggering on every git push to any branch! It should only trigger when a version tag matching `v*` is pushed.
-      Update `.github/workflows/ci.yml` so that under `on.push:`, it filters with `tags: ['v*']`.
-    manifest: |
-      name: Release Pipeline
-      on:
-        push:
-      jobs:
-        release:
-          permissions:
-            contents: write
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - uses: softprops/action-gh-release@v2
-    hints:
-      - "Replace bare 'push:' with 'push: tags: [\"v*\"]'."
-      - "Ensure 'tags:' is indented under 'push:'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "restrict-trigger-to-version-tags"
+  title: "Restrict Trigger to Version Tags"
+  description: |
+    The workflow is currently triggering on every git push to any branch! It should only trigger when a version tag matching `v*` is pushed.
+    Update `.github/workflows/ci.yml` so that under `on.push:`, it filters with `tags: ['v*']`.
+  manifest: |
+    name: Release Pipeline
+    on:
+      push:
+    jobs:
+      release:
+        permissions:
+          contents: write
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: softprops/action-gh-release@v2
+  hints:
+  - "Replace bare 'push:' with 'push: tags: [\"v*\"]'."
+  - "Ensure 'tags:' is indented under 'push:'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: on.push.tags
+      contains: v*
+      message: Trigger must restrict tags to version pattern (e.g. 'v*').
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "Which token permission is strictly required to create a GitHub Release via actions?"
-      options:
-        - "contents: write"
-        - "deployments: write"
-        - "packages: write"
-        - "id-token: write"
-      correct: "contents: write"
-      explanation: "GitHub Releases are part of the repository contents API, requiring contents: write permission."
-      points: 10
+  - type: "multiple_choice"
+    question: "Which token permission is strictly required to create a GitHub Release
+      via actions?"
+    options:
+    - "contents: write"
+    - "deployments: write"
+    - "packages: write"
+    - "id-token: write"
+    correct: "contents: write"
+    explanation: "GitHub Releases are part of the repository contents API, requiring
+      contents: write permission."
+    points: 10
 
-    - type: "true_false"
-      question: "Setting 'generate_release_notes: true' automatically builds release notes from merged pull requests."
-      correct: true
-      explanation: "GitHub parses merged PR titles, labels, and authors since the previous release tag to generate the changelog."
-      points: 10
+  - type: "true_false"
+    question: "Setting 'generate_release_notes: true' automatically builds release
+      notes from merged pull requests."
+    correct: true
+    explanation: "GitHub parses merged PR titles, labels, and authors since the previous
+      release tag to generate the changelog."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "How do you prevent a release from being visible to the general public until manual verification is complete?"
-      options:
-        - "Set draft: true"
-        - "Set private: true"
-        - "Set hidden: true"
-        - "Set access: internal"
-      correct: "Set draft: true"
-      explanation: "Draft releases are saved as unpublished drafts visible only to repository collaborators."
-      points: 10
+  - type: "multiple_choice"
+    question: "How do you prevent a release from being visible to the general public
+      until manual verification is complete?"
+    options:
+    - "Set draft: true"
+    - "Set private: true"
+    - "Set hidden: true"
+    - "Set access: internal"
+    correct: "Set draft: true"
+    explanation: "Draft releases are saved as unpublished drafts visible only to repository
+      collaborators."
+    points: 10
+  - id: q-fill-contents-permission
+    type: fill_yaml
+    question: What permission scope and level is required to create a GitHub 
+      Release and upload binary assets?
+    yaml_template: "permissions:\n  contents: __________\n"
+    expected: write
+    explanation: "'contents: write' is required to create tags, git releases, and
+      upload release assets."
+    points: 10

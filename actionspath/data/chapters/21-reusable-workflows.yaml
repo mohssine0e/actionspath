@@ -1,217 +1,252 @@
 chapter:
   number: 21
   title: "Reusable Workflows & Standardized Templates"
-  description: "Standardize enterprise CI pipelines across repositories using workflow_call, input parameters, secrets inheritance, and caller outputs."
+  description: "Standardize enterprise CI pipelines across repositories using workflow_call,
+    input parameters, secrets inheritance, and caller outputs."
 
 concepts:
-  - title: "The DRY Principle: Reusable Workflows"
-    content: |
-      In an engineering organization with 50 repositories, copying and pasting the same 80-line test and lint workflow into every repo creates an unmaintainable maintenance nightmare. **Reusable Workflows** solve this.
+- title: "The DRY Principle: Reusable Workflows"
+  content: |
+    In an engineering organization with 50 repositories, copying and pasting the same 80-line test and lint workflow into every repo creates an unmaintainable maintenance nightmare. **Reusable Workflows** solve this.
 
-      **The Architectural Sub-Blueprint Analogy**
+    **The Architectural Sub-Blueprint Analogy**
 
-      When constructing 50 skyscrapers, an engineering firm does not redraw the elevator motor specifications 50 times. The master engineering office draws one certified elevator sub-blueprint, and all 50 site managers import and reference it.
+    When constructing 50 skyscrapers, an engineering firm does not redraw the elevator motor specifications 50 times. The master engineering office draws one certified elevator sub-blueprint, and all 50 site managers import and reference it.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │ SHARED REPOSITORY: acme/shared-workflows               │
-      │ File: .github/workflows/standard-ci.yml                │
-      │                                                        │
-      │ on:                                                    │
-      │   workflow_call:                                       │
-      │     inputs:                                            │
-      │       node-version: { type: string, default: '20' }    │
-      └──────────────────────────┬─────────────────────────────┘
-                                 │ Referenced by caller
-                                 ▼
-      ┌────────────────────────────────────────────────────────┐
-      │ CALLER REPO: acme/frontend-app                         │
-      │                                                        │
-      │ jobs:                                                  │
-      │   call-ci:                                             │
-      │     uses: acme/shared-workflows/.github/workflows/     │
-      │           standard-ci.yml@v2                           │
-      │     with:                                              │
-      │       node-version: '22'                               │
-      └────────────────────────────────────────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │ SHARED REPOSITORY: acme/shared-workflows               │
+    │ File: .github/workflows/standard-ci.yml                │
+    │                                                        │
+    │ on:                                                    │
+    │   workflow_call:                                       │
+    │     inputs:                                            │
+    │       node-version: { type: string, default: '20' }    │
+    └──────────────────────────┬─────────────────────────────┘
+                               │ Referenced by caller
+                               ▼
+    ┌────────────────────────────────────────────────────────┐
+    │ CALLER REPO: acme/frontend-app                         │
+    │                                                        │
+    │ jobs:                                                  │
+    │   call-ci:                                             │
+    │     uses: acme/shared-workflows/.github/workflows/     │
+    │           standard-ci.yml@v2                           │
+    │     with:                                              │
+    │       node-version: '22'                               │
+    └────────────────────────────────────────────────────────┘
+    ```
 
-      **Key insight:** A called workflow must declare `on: workflow_call:` as its trigger; caller workflows invoke it using the `uses:` keyword at the job level.
-    key_points:
-      - "Reusable workflows eliminate duplicate CI configurations across repositories"
-      - "The called workflow must declare the 'workflow_call' trigger"
-      - "Caller workflows reference called workflows via 'uses: owner/repo/path@ref'"
+    **Key insight:** A called workflow must declare `on: workflow_call:` as its trigger; caller workflows invoke it using the `uses:` keyword at the job level.
+  key_points:
+  - "Reusable workflows eliminate duplicate CI configurations across repositories"
+  - "The called workflow must declare the 'workflow_call' trigger"
+  - "Caller workflows reference called workflows via 'uses: owner/repo/path@ref'"
 
-  - title: "Inputs, Secrets & `secrets: inherit`"
-    content: |
-      Called workflows parameterize their logic with inputs and receive secrets securely.
+  diagram:
+    title: Caller vs Reusable (Called) Workflow Execution Model
+    diagram: "Caller Repository                               Central Security Org
+      Repository\n  ┌─────────────────────────────────────┐         ┌─────────────────────────────────────┐\n\
+      \  │ .github/workflows/production-ci.yml │         │ .github/workflows/reusable-build.yml│\n\
+      \  │                                     │         │                       \
+      \              │\n  │ jobs:                               │         │ on:  \
+      \                               │\n  │   call-build:                       │\
+      \         │   workflow_call:                    │\n  │     uses: org/templates/.github/...
+      ├────────▶│     inputs:                         │\n  │     with:           \
+      \                │         │       environment: {type: string}   │\n  │    \
+      \   environment: 'prod'           │         │     secrets:                 \
+      \       │\n  │     secrets: inherit                │         │       TOKEN:
+      {required: true}       │\n  │                                     │        \
+      \ │                                     │\n  │   next-job:                 \
+      \        │         │ jobs:                               │\n  │     needs: call-build\
+      \               │◀────────┤   enforce-standards: ...            │\n  └─────────────────────────────────────┘\
+      \         └─────────────────────────────────────┘"
+- title: "Inputs, Secrets & `secrets: inherit`"
+  content: |
+    Called workflows parameterize their logic with inputs and receive secrets securely.
 
-      **Defining Inputs in the Called Workflow:**
-      ```yaml
-      on:
-        workflow_call:
-          inputs:
-            environment:
-              description: 'Target deployment tier'
-              required: true
-              type: string
-          secrets:
-            DEPLOY_KEY:
-              required: false
-      ```
+    **Defining Inputs in the Called Workflow:**
+    ```yaml
+    on:
+      workflow_call:
+        inputs:
+          environment:
+            description: 'Target deployment tier'
+            required: true
+            type: string
+        secrets:
+          DEPLOY_KEY:
+            required: false
+    ```
 
-      **Passing Secrets from the Caller:**
-      You can either pass secrets explicitly or use `secrets: inherit`:
-      ```yaml
-      jobs:
-        run-pipeline:
-          uses: acme/workflows/.github/workflows/deploy.yml@v1
-          with:
-            environment: production
-          secrets: inherit   # Automatically passes all caller secrets
-      ```
+    **Passing Secrets from the Caller:**
+    You can either pass secrets explicitly or use `secrets: inherit`:
+    ```yaml
+    jobs:
+      run-pipeline:
+        uses: acme/workflows/.github/workflows/deploy.yml@v1
+        with:
+          environment: production
+        secrets: inherit   # Automatically passes all caller secrets
+    ```
 
-      **Key insight:** `secrets: inherit` dramatically simplifies caller workflows by forwarding all authorized repository and organization secrets in one statement.
-    key_points:
-      - "Define strongly-typed inputs under 'workflow_call.inputs'"
-      - "Use 'secrets: inherit' to pass caller secrets without verbose mappings"
-      - "Input types include string, boolean, and number"
+    **Key insight:** `secrets: inherit` dramatically simplifies caller workflows by forwarding all authorized repository and organization secrets in one statement.
+  key_points:
+  - "Define strongly-typed inputs under 'workflow_call.inputs'"
+  - "Use 'secrets: inherit' to pass caller secrets without verbose mappings"
+  - "Input types include string, boolean, and number"
 
-  - title: "Returning Outputs from Called Workflows"
-    content: |
-      A reusable workflow can return data back to the caller workflow:
+- title: "Returning Outputs from Called Workflows"
+  content: |
+    A reusable workflow can return data back to the caller workflow:
 
-      **In the Called Workflow:**
-      ```yaml
-      on:
-        workflow_call:
-          outputs:
-            build_version:
-              description: "Extracted semantic version"
-              value: ${{ jobs.build.outputs.version }}
+    **In the Called Workflow:**
+    ```yaml
+    on:
+      workflow_call:
+        outputs:
+          build_version:
+            description: "Extracted semantic version"
+            value: ${{ jobs.build.outputs.version }}
 
-      jobs:
-        build:
-          runs-on: ubuntu-latest
-          outputs:
-            version: ${{ steps.step1.outputs.version }}
-          steps:
-            - id: step1
-              run: echo "version=2.1.0" >> "$GITHUB_OUTPUT"
-      ```
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        outputs:
+          version: ${{ steps.step1.outputs.version }}
+        steps:
+          - id: step1
+            run: echo "version=2.1.0" >> "$GITHUB_OUTPUT"
+    ```
 
-      **Consuming in Caller:**
-      `${{ jobs.run-pipeline.outputs.build_version }}`
+    **Consuming in Caller:**
+    `${{ jobs.run-pipeline.outputs.build_version }}`
 
-      **Key insight:** Top-level outputs bridge step outputs inside the reusable workflow out to subsequent jobs in the caller repository.
-    key_points:
-      - "Called workflows declare top-level outputs under workflow_call.outputs"
-      - "The output value maps to a job output from one of its internal jobs"
-      - "Callers access returned values with ${{ jobs.<job_id>.outputs.<key> }}"
+    **Key insight:** Top-level outputs bridge step outputs inside the reusable workflow out to subsequent jobs in the caller repository.
+  key_points:
+  - "Called workflows declare top-level outputs under workflow_call.outputs"
+  - "The output value maps to a job output from one of its internal jobs"
+  - "Callers access returned values with ${{ jobs.<job_id>.outputs.<key> }}"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect Workflow Directory Tree"
-    instructions: |
-      **What we're doing:** Inspect the local repository workflow files.
+- id: "cmd-01"
+  title: "Inspect Workflow Directory Tree"
+  instructions: |
+    **What we're doing:** Inspect the local repository workflow files.
 
-      **Why this matters:** Reusable workflows are stored inside `.github/workflows/`.
+    **Why this matters:** Reusable workflows are stored inside `.github/workflows/`.
 
-      **The command pattern:**
-      ```
-      ls -la .github/workflows/ 2>/dev/null || echo "Standard workflow location: .github/workflows/"
-      ```
+    **The command pattern:**
+    ```
+    ls -la .github/workflows/ 2>/dev/null || echo "Standard workflow location: .github/workflows/"
+    ```
 
-      Run this command:
-    command_hint: "ls -la .github/workflows/ 2>/dev/null || echo \"Standard workflow location: .github/workflows/\""
-    validation:
-      type: "command_output"
-      command: "ls -la .github/workflows/ 2>/dev/null || echo 'Standard workflow location: .github/workflows/'"
-      expected_contains: "workflow"
-    points: 10
+    Run this command:
+  command_hint: "ls -la .github/workflows/ 2>/dev/null || echo \"Standard workflow
+    location: .github/workflows/\""
+  validation:
+    type: "command_output"
+    command: "ls -la .github/workflows/ 2>/dev/null || echo 'Standard workflow location:
+      .github/workflows/'"
+    expected_contains: "workflow"
+  points: 10
 
 scenarios:
-  - id: "fix-missing-workflow-call-trigger"
-    title: "Add workflow_call Trigger to Reusable Workflow"
-    description: |
-      A shared workflow file in `.github/workflows/reusable.yml` cannot be called because it only specifies `on: [push]`.
-      Edit `.github/workflows/ci.yml` and add `workflow_call:` under `on:` so caller repositories can invoke it.
-    manifest: |
-      name: Standard Linter
-      on:
-        push:
-      jobs:
-        lint:
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Linting code..."
-    hints:
-      - "Add 'workflow_call:' under the 'on:' trigger list."
-      - "Can be 'workflow_call:' on its own or alongside push."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-missing-workflow-call-trigger"
+  title: "Add workflow_call Trigger to Reusable Workflow"
+  description: |
+    A shared workflow file in `.github/workflows/reusable.yml` cannot be called because it only specifies `on: [push]`.
+    Edit `.github/workflows/ci.yml` and add `workflow_call:` under `on:` so caller repositories can invoke it.
+  manifest: |
+    name: Standard Linter
+    on:
+      push:
+    jobs:
+      lint:
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Linting code..."
+  hints:
+  - "Add 'workflow_call:' under the 'on:' trigger list."
+  - "Can be 'workflow_call:' on its own or alongside push."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: on.workflow_call
+      exists: true
+      message: 'Reusable workflow must define the on: workflow_call trigger.'
+  points: 25
 
-  - id: "add-secrets-inherit-to-caller"
-    title: "Pass Secrets to Reusable Workflow"
-    description: |
-      The caller job invokes a reusable workflow that fails because required secrets are not forwarded.
-      Edit `.github/workflows/ci.yml` and add `secrets: inherit` directly under the `call-shared` job.
-    manifest: |
-      name: Caller Pipeline
-      on: [push]
-      jobs:
-        call-shared:
-          uses: acme/shared-workflows/.github/workflows/deploy.yml@v1
-          with:
-            env: staging
-    hints:
-      - "Add 'secrets: inherit' indented under 'call-shared:'."
-      - "Align 'secrets:' with 'uses:' and 'with:'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "add-secrets-inherit-to-caller"
+  title: "Pass Secrets to Reusable Workflow"
+  description: |
+    The caller job invokes a reusable workflow that fails because required secrets are not forwarded.
+    Edit `.github/workflows/ci.yml` and add `secrets: inherit` directly under the `call-shared` job.
+  manifest: |
+    name: Caller Pipeline
+    on: [push]
+    jobs:
+      call-shared:
+        uses: acme/shared-workflows/.github/workflows/deploy.yml@v1
+        with:
+          env: staging
+  hints:
+  - "Add 'secrets: inherit' indented under 'call-shared:'."
+  - "Align 'secrets:' with 'uses:' and 'with:'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.call-workflow.secrets
+      equals: inherit
+      message: 'Caller workflow job must pass secrets: inherit.'
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "Which trigger event MUST be defined in a workflow file to make it reusable by other workflows?"
-      options:
-        - "workflow_call"
-        - "workflow_run"
-        - "repository_dispatch"
-        - "workflow_dispatch"
-      correct: "workflow_call"
-      explanation: "The workflow_call trigger designates a workflow as a reusable template callable via uses:."
-      points: 10
+  - type: "multiple_choice"
+    question: "Which trigger event MUST be defined in a workflow file to make it reusable
+      by other workflows?"
+    options:
+    - "workflow_call"
+    - "workflow_run"
+    - "repository_dispatch"
+    - "workflow_dispatch"
+    correct: "workflow_call"
+    explanation: "The workflow_call trigger designates a workflow as a reusable template
+      callable via uses:."
+    points: 10
 
-    - type: "true_false"
-      question: "The 'secrets: inherit' keyword automatically forwards all caller secrets to the called reusable workflow."
-      correct: true
-      explanation: "secrets: inherit passes all secrets from the caller's context to the reusable workflow without explicit mapping."
-      points: 10
+  - type: "true_false"
+    question: "The 'secrets: inherit' keyword automatically forwards all caller secrets
+      to the called reusable workflow."
+    correct: true
+    explanation: "secrets: inherit passes all secrets from the caller's context to
+      the reusable workflow without explicit mapping."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "At what syntax level are reusable workflows invoked in a caller file?"
-      options:
-        - "At the job level (using 'uses:' instead of 'steps:')"
-        - "At the step level (inside a job's steps: list)"
-        - "Inside an 'include:' block at the workflow top level"
-        - "Inside the 'strategy:' matrix"
-      correct: "At the job level (using 'uses:' instead of 'steps:')"
-      explanation: "Reusable workflows define entire jobs and are invoked with 'uses: owner/repo/path@ref' directly under the job key."
-      points: 10
+  - type: "multiple_choice"
+    question: "At what syntax level are reusable workflows invoked in a caller file?"
+    options:
+    - "At the job level (using 'uses:' instead of 'steps:')"
+    - "At the step level (inside a job's steps: list)"
+    - "Inside an 'include:' block at the workflow top level"
+    - "Inside the 'strategy:' matrix"
+    correct: "At the job level (using 'uses:' instead of 'steps:')"
+    explanation: "Reusable workflows define entire jobs and are invoked with 'uses:
+      owner/repo/path@ref' directly under the job key."
+    points: 10
 
-    - type: "fill_yaml"
-      question: "Fill in the trigger keyword required to make a workflow reusable:"
-      yaml_template: |
-        on:
-          <BLANK>:
-            inputs:
-              node-version:
-                type: string
-      expected: "workflow_call"
-      explanation: "The 'workflow_call' trigger enables a workflow to be invoked by other workflows."
-      points: 10
+  - type: "fill_yaml"
+    question: "Fill in the trigger keyword required to make a workflow reusable:"
+    yaml_template: |
+      on:
+        <BLANK>:
+          inputs:
+            node-version:
+              type: string
+    expected: "workflow_call"
+    explanation: "The 'workflow_call' trigger enables a workflow to be invoked by
+      other workflows."
+    points: 10

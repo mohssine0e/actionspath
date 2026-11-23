@@ -1,185 +1,210 @@
 chapter:
   number: 27
   title: "Blue-Green Deployment Strategies"
-  description: "Achieve zero-downtime releases by orchestrating parallel Blue and Green environments, routing traffic at the load balancer, and rolling back instantaneously."
+  description: "Achieve zero-downtime releases by orchestrating parallel Blue and
+    Green environments, routing traffic at the load balancer, and rolling back instantaneously."
 
 concepts:
-  - title: "The Blue-Green Architecture: Zero Downtime"
-    content: |
-      Deploying directly onto active production servers risks brief outages, broken sessions, and database migrations crashing mid-flight. **Blue-Green Deployments** eliminate downtime entirely.
+- title: "The Blue-Green Architecture: Zero Downtime"
+  content: |
+    Deploying directly onto active production servers risks brief outages, broken sessions, and database migrations crashing mid-flight. **Blue-Green Deployments** eliminate downtime entirely.
 
-      **The Twin Stage Theaters Analogy**
+    **The Twin Stage Theaters Analogy**
 
-      Imagine a Broadway production company with two identical adjacent theaters: Theater Blue and Theater Green.
-      While the audience enjoys the show in Theater Blue, stagehands quietly construct and rehearse the new set in Theater Green. Once verified, the audience is guided through the lobby into Theater Green. If a stage light malfunctions, the audience is guided back into Theater Blue in seconds.
+    Imagine a Broadway production company with two identical adjacent theaters: Theater Blue and Theater Green.
+    While the audience enjoys the show in Theater Blue, stagehands quietly construct and rehearse the new set in Theater Green. Once verified, the audience is guided through the lobby into Theater Green. If a stage light malfunctions, the audience is guided back into Theater Blue in seconds.
 
-      ```
-      BEFORE SWITCH:
-      Internet Traffic ──► [ Load Balancer ] ──► [ BLUE Environment (Live v1.0) ]
-                                              ─ ─ [ GREEN Environment (Idle v1.1 Testing) ]
+    ```
+    BEFORE SWITCH:
+    Internet Traffic ──► [ Load Balancer ] ──► [ BLUE Environment (Live v1.0) ]
+                                            ─ ─ [ GREEN Environment (Idle v1.1 Testing) ]
 
-      AFTER AUTOMATED VALIDATION & TRAFFIC SWITCH:
-      Internet Traffic ──► [ Load Balancer ] ─ ─ [ BLUE Environment (Idle v1.0 Rollback) ]
-                                              ──► [ GREEN Environment (Live v1.1 Active) ]
-      ```
+    AFTER AUTOMATED VALIDATION & TRAFFIC SWITCH:
+    Internet Traffic ──► [ Load Balancer ] ─ ─ [ BLUE Environment (Idle v1.0 Rollback) ]
+                                            ──► [ GREEN Environment (Live v1.1 Active) ]
+    ```
 
-      **Key insight:** At no point is production offline; the switch happens instantaneously at the router or load balancer level.
-    key_points:
-      - "Maintains two identical production environments: Blue (active) and Green (idle)"
-      - "New code deploys to the idle environment and undergoes smoke tests"
-      - "Traffic switches instantaneously at the load balancer or DNS router"
+    **Key insight:** At no point is production offline; the switch happens instantaneously at the router or load balancer level.
+  key_points:
+  - "Maintains two identical production environments: Blue (active) and Green (idle)"
+  - "New code deploys to the idle environment and undergoes smoke tests"
+  - "Traffic switches instantaneously at the load balancer or DNS router"
 
-  - title: "Automating Traffic Switching in CI/CD"
-    content: |
-      A robust Blue-Green workflow follows a strict four-stage execution sequence:
+- title: "Automating Traffic Switching in CI/CD"
+  content: |
+    A robust Blue-Green workflow follows a strict four-stage execution sequence:
 
-      ```yaml
-      jobs:
-        deploy:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
+    ```yaml
+    jobs:
+      deploy:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
 
-            # Step 1: Deploy new release to the idle target slot
-            - name: Deploy to Idle Green Slot
-              run: ./deploy-slot.sh --target green
+          # Step 1: Deploy new release to the idle target slot
+          - name: Deploy to Idle Green Slot
+            run: ./deploy-slot.sh --target green
 
-            # Step 2: Synthetic health check against private green endpoint
-            - name: Validate Green Healthcheck Probe
-              run: |
-                curl --fail --retry 5 --retry-delay 5 https://green-preview.internal/health
-                ./run-smoke-tests.sh --target https://green-preview.internal
+          # Step 2: Synthetic health check against private green endpoint
+          - name: Validate Green Healthcheck Probe
+            run: |
+              curl --fail --retry 5 --retry-delay 5 https://green-preview.internal/health
+              ./run-smoke-tests.sh --target https://green-preview.internal
 
-            # Step 3: Switch live router / load balancer target
-            - name: Switch Traffic to Green
-              run: ./switch-traffic.sh --active green
+          # Step 3: Switch live router / load balancer target
+          - name: Switch Traffic to Green
+            run: ./switch-traffic.sh --active green
 
-            # Step 4: Verify public production endpoint
-            - name: Post-Switch Production Verification
-              run: curl --fail https://app.example.com/health
-      ```
+          # Step 4: Verify public production endpoint
+          - name: Post-Switch Production Verification
+            run: curl --fail https://app.example.com/health
+    ```
 
-      **Key insight:** The health check probe against the idle slot MUST succeed before the workflow issues the router traffic switch command.
-    key_points:
-      - "Deploy to the idle slot without affecting active customer traffic"
-      - "Run automated synthetic probes and smoke tests against the idle slot"
-      - "Flip router target only after health checks report 100% healthy"
+    **Key insight:** The health check probe against the idle slot MUST succeed before the workflow issues the router traffic switch command.
+  key_points:
+  - "Deploy to the idle slot without affecting active customer traffic"
+  - "Run automated synthetic probes and smoke tests against the idle slot"
+  - "Flip router target only after health checks report 100% healthy"
 
-  - title: "Instant Rollback Architecture"
-    content: |
-      If error rates spike or an unexpected bug surfaces minutes after switching traffic, you don't need to rebuild or recompile previous code.
+- title: "Instant Rollback Architecture"
+  content: |
+    If error rates spike or an unexpected bug surfaces minutes after switching traffic, you don't need to rebuild or recompile previous code.
 
-      **The 200-Millisecond Rollback:**
-      Because the previous environment (Blue) is still running intact, rolling back is as simple as flipping the router target back to Blue:
+    **The 200-Millisecond Rollback:**
+    Because the previous environment (Blue) is still running intact, rolling back is as simple as flipping the router target back to Blue:
 
-      ```yaml
-      - name: Emergency Rollback on Failure
-        if: failure()
-        run: ./switch-traffic.sh --active blue
-      ```
+    ```yaml
+    - name: Emergency Rollback on Failure
+      if: failure()
+      run: ./switch-traffic.sh --active blue
+    ```
 
-      **Decommissioning:**
-      Only shut down or recycle the old environment after a designated observation window (e.g. 2 hours or overnight) has elapsed without incident.
+    **Decommissioning:**
+    Only shut down or recycle the old environment after a designated observation window (e.g. 2 hours or overnight) has elapsed without incident.
 
-      **Key insight:** Reverting a router switch takes milliseconds, whereas rebuilding an old release takes 10+ minutes.
-    key_points:
-      - "Keep the previous environment alive as an instant rollback standby"
-      - "Rollback requires only re-pointing the load balancer (takes <1 second)"
-      - "Only decommission the standby environment after an observation window"
+    **Key insight:** Reverting a router switch takes milliseconds, whereas rebuilding an old release takes 10+ minutes.
+  key_points:
+  - "Keep the previous environment alive as an instant rollback standby"
+  - "Rollback requires only re-pointing the load balancer (takes <1 second)"
+  - "Only decommission the standby environment after an observation window"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Simulate Health Check Probe Pattern"
-    instructions: |
-      **What we're doing:** Inspect the standard curl health check retry flags.
+- id: "cmd-01"
+  title: "Simulate Health Check Probe Pattern"
+  instructions: |
+    **What we're doing:** Inspect the standard curl health check retry flags.
 
-      **Why this matters:** In Blue-Green workflows, curl tests the idle slot with `--fail` and `--retry`.
+    **Why this matters:** In Blue-Green workflows, curl tests the idle slot with `--fail` and `--retry`.
 
-      **The command pattern:**
-      ```
-      echo "curl --fail --retry 3 http://localhost:8080/health"
-      ```
+    **The command pattern:**
+    ```
+    echo "curl --fail --retry 3 http://localhost:8080/health"
+    ```
 
-      Run this command:
-    command_hint: "echo \"curl --fail --retry 3 http://localhost:8080/health\""
-    validation:
-      type: "command_output"
-      command: "echo 'curl --fail --retry 3 http://localhost:8080/health'"
-      expected_contains: "curl"
-    points: 10
+    Run this command:
+  command_hint: "echo \"curl --fail --retry 3 http://localhost:8080/health\""
+  validation:
+    type: "command_output"
+    command: "echo 'curl --fail --retry 3 http://localhost:8080/health'"
+    expected_contains: "curl"
+  points: 10
 
 scenarios:
-  - id: "enforce-smoke-test-before-switch"
-    title: "Ensure Smoke Tests Precede Traffic Switch"
-    description: |
-      A developer placed the traffic switch step before running smoke tests! If the build has a bug, bad code goes live to users immediately.
-      Reorder the steps in `.github/workflows/ci.yml` so that `run-smoke-tests` executes before `switch-traffic`.
-    manifest: |
-      name: Blue Green Rollout
-      on: [push]
-      jobs:
-        release:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - run: ./deploy-to-green.sh
-            - run: ./switch-traffic-to-green.sh
-            - run: ./run-smoke-tests.sh
-    hints:
-      - "Smoke tests must validate the green slot before traffic is switched."
-      - "Move the 'run-smoke-tests.sh' step above 'switch-traffic-to-green.sh'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "enforce-smoke-test-before-switch"
+  title: "Ensure Smoke Tests Precede Traffic Switch"
+  description: |
+    A developer placed the traffic switch step before running smoke tests! If the build has a bug, bad code goes live to users immediately.
+    Reorder the steps in `.github/workflows/ci.yml` so that `run-smoke-tests` executes before `switch-traffic`.
+  manifest: |
+    name: Blue Green Rollout
+    on: [push]
+    jobs:
+      release:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - run: ./deploy-to-green.sh
+          - run: ./switch-traffic-to-green.sh
+          - run: ./run-smoke-tests.sh
+  hints:
+  - "Smoke tests must validate the green slot before traffic is switched."
+  - "Move the 'run-smoke-tests.sh' step above 'switch-traffic-to-green.sh'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.switch-traffic.needs
+      contains: smoke-test
+      message: 'switch-traffic job must declare needs: [smoke-test].'
+  points: 25
 
-  - id: "add-automated-rollback-on-failure"
-    title: "Add Automated Rollback on Step Failure"
-    description: |
-      Add an emergency rollback step using `if: failure()` to revert traffic back to Blue if any post-switch verification step fails.
-    manifest: |
-      name: Resilient Rollout
-      on: [push]
-      jobs:
-        deploy:
-          runs-on: ubuntu-latest
-          steps:
-            - run: ./switch-traffic.sh --active green
-            - run: ./verify-production-health.sh
-    hints:
-      - "Add a new step with 'if: failure()'."
-      - "Run './switch-traffic.sh --active blue'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "add-automated-rollback-on-failure"
+  title: "Add Automated Rollback on Step Failure"
+  description: |
+    Add an emergency rollback step using `if: failure()` to revert traffic back to Blue if any post-switch verification step fails.
+  manifest: |
+    name: Resilient Rollout
+    on: [push]
+    jobs:
+      deploy:
+        runs-on: ubuntu-latest
+        steps:
+          - run: ./switch-traffic.sh --active green
+          - run: ./verify-production-health.sh
+  hints:
+  - "Add a new step with 'if: failure()'."
+  - "Run './switch-traffic.sh --active blue'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.deploy.steps
+      has_step_with_run: rollback
+      message: 'Must include rollback step with if: failure().'
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "What is the primary operational advantage of Blue-Green deployments over in-place rolling restarts?"
-      options:
-        - "Zero downtime and instantaneous rollback via load balancer target switching"
-        - "Requires 50% fewer servers"
-        - "Bypasses the need for integration testing"
-        - "Eliminates database schema changes"
-      correct: "Zero downtime and instantaneous rollback via load balancer target switching"
-      explanation: "Deploying to an idle environment allows full pre-validation and instantaneous traffic switching without downtime."
-      points: 10
+  - type: "multiple_choice"
+    question: "What is the primary operational advantage of Blue-Green deployments
+      over in-place rolling restarts?"
+    options:
+    - "Zero downtime and instantaneous rollback via load balancer target switching"
+    - "Requires 50% fewer servers"
+    - "Bypasses the need for integration testing"
+    - "Eliminates database schema changes"
+    correct: "Zero downtime and instantaneous rollback via load balancer target switching"
+    explanation: "Deploying to an idle environment allows full pre-validation and
+      instantaneous traffic switching without downtime."
+    points: 10
 
-    - type: "true_false"
-      question: "In a Blue-Green deployment, the previous environment should be deleted immediately after traffic is switched."
-      correct: false
-      explanation: "The previous environment is kept alive as an instant rollback target in case defects appear after cutover."
-      points: 10
+  - type: "true_false"
+    question: "In a Blue-Green deployment, the previous environment should be deleted
+      immediately after traffic is switched."
+    correct: false
+    explanation: "The previous environment is kept alive as an instant rollback target
+      in case defects appear after cutover."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "When should synthetic smoke tests and health check probes run in a Blue-Green workflow?"
-      options:
-        - "Against the idle environment BEFORE the router switches traffic"
-        - "Only after all traffic has been switched"
-        - "During initial git checkout"
-        - "Only when a developer manually triggers them"
-      correct: "Against the idle environment BEFORE the router switches traffic"
-      explanation: "Probing the idle environment guarantees the application is healthy before real user traffic is routed to it."
-      points: 10
+  - type: "multiple_choice"
+    question: "When should synthetic smoke tests and health check probes run in a
+      Blue-Green workflow?"
+    options:
+    - "Against the idle environment BEFORE the router switches traffic"
+    - "Only after all traffic has been switched"
+    - "During initial git checkout"
+    - "Only when a developer manually triggers them"
+    correct: "Against the idle environment BEFORE the router switches traffic"
+    explanation: "Probing the idle environment guarantees the application is healthy
+      before real user traffic is routed to it."
+    points: 10
+  - id: q-fill-failure-condition
+    type: fill_yaml
+    question: Complete the status check function used to run an automated 
+      rollback step only when previous steps fail.
+    yaml_template: "steps:\n  - name: Emergency Rollback\n    if: __________()\n \
+      \   run: ./rollback.sh\n"
+    expected: failure
+    explanation: "'if: failure()' triggers cleanup or rollback steps when any previous
+      step in the job failed."
+    points: 10

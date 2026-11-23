@@ -69,6 +69,35 @@ def render_concept(
     if key_points:
         render_key_points(key_points, console)
 
+    # Render architecture diagram if present
+    diagram = concept.get("diagram")
+    if diagram:
+        render_ascii_diagram(diagram, console)
+
+
+def render_ascii_diagram(
+    diagram: str | dict[str, str],
+    console: Console | None = None,
+) -> None:
+    """Render an ASCII/Unicode architecture or pipeline diagram."""
+    if console is None:
+        console = get_console()
+
+    if isinstance(diagram, dict):
+        diag_title = diagram.get("title", "Architecture Diagram")
+        diag_body = diagram.get("diagram", "")
+    else:
+        diag_title = "Architecture Diagram"
+        diag_body = str(diagram)
+
+    panel = Panel(
+        Text(diag_body, style="bold cyan"),
+        title=f"[bold green]📊 {diag_title}[/bold green]",
+        border_style="bright_blue",
+        padding=(1, 2),
+    )
+    console.print(panel)
+
 
 def render_key_points(key_points: list[str], console: Console | None = None) -> None:
     """Render key points as a bullet list.

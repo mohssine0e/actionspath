@@ -1,197 +1,221 @@
 chapter:
   number: 22
   title: "Composite Actions: Packaging Multi-Step Tasks"
-  description: "Bundle repetitive multi-step shell commands and setup actions into modular, versioned, reusable custom actions using action.yml and using: 'composite'."
+  description: "Bundle repetitive multi-step shell commands and setup actions into
+    modular, versioned, reusable custom actions using action.yml and using: 'composite'."
 
 concepts:
-  - title: "What are Composite Actions?"
-    content: |
-      While Reusable Workflows share entire jobs, **Composite Actions** package multiple individual steps into a single reusable step within an existing job.
+- title: "What are Composite Actions?"
+  content: |
+    While Reusable Workflows share entire jobs, **Composite Actions** package multiple individual steps into a single reusable step within an existing job.
 
-      **The Microwave Preset Analogy**
+    **The Microwave Preset Analogy**
 
-      Instead of setting temperature, cook time, rotating frequency, and defrost power each time you heat soup (5 manual steps in every job), you press a single button: *"Soup Preset"*. The composite action encapsulates those 5 steps behind one clean interface.
+    Instead of setting temperature, cook time, rotating frequency, and defrost power each time you heat soup (5 manual steps in every job), you press a single button: *"Soup Preset"*. The composite action encapsulates those 5 steps behind one clean interface.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │ COMPOSITE ACTION: .github/actions/setup-toolchain/action.yml
-      │                                                        │
-      │ runs:                                                  │
-      │   using: 'composite'                                   │
-      │   steps:                                               │
-      │     - uses: actions/setup-node@v4                      │
-      │     - uses: actions/cache@v4                           │
-      │     - run: npm ci                                      │
-      │       shell: bash                                      │
-      └──────────────────────────┬─────────────────────────────┘
-                                 │ Invoked as a single step
-                                 ▼
-      ┌────────────────────────────────────────────────────────┐
-      │ WORKFLOW JOB: .github/workflows/ci.yml                 │
-      │                                                        │
-      │ steps:                                                 │
-      │   - uses: actions/checkout@v4                          │
-      │   - uses: ./.github/actions/setup-toolchain            │
-      │   - run: npm test                                      │
-      └────────────────────────────────────────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │ COMPOSITE ACTION: .github/actions/setup-toolchain/action.yml
+    │                                                        │
+    │ runs:                                                  │
+    │   using: 'composite'                                   │
+    │   steps:                                               │
+    │     - uses: actions/setup-node@v4                      │
+    │     - uses: actions/cache@v4                           │
+    │     - run: npm ci                                      │
+    │       shell: bash                                      │
+    └──────────────────────────┬─────────────────────────────┘
+                               │ Invoked as a single step
+                               ▼
+    ┌────────────────────────────────────────────────────────┐
+    │ WORKFLOW JOB: .github/workflows/ci.yml                 │
+    │                                                        │
+    │ steps:                                                 │
+    │   - uses: actions/checkout@v4                          │
+    │   - uses: ./.github/actions/setup-toolchain            │
+    │   - run: npm test                                      │
+    └────────────────────────────────────────────────────────┘
+    ```
 
-      **Key insight:** Composite actions let you compose multiple steps (including other actions) into one reusable step block.
-    key_points:
-      - "Composite actions bundle multiple steps into a single step"
-      - "Defined in an action.yml file using 'runs.using: composite'"
-      - "Can execute shell commands AND invoke other actions"
+    **Key insight:** Composite actions let you compose multiple steps (including other actions) into one reusable step block.
+  key_points:
+  - "Composite actions bundle multiple steps into a single step"
+  - "Defined in an action.yml file using 'runs.using: composite'"
+  - "Can execute shell commands AND invoke other actions"
 
-  - title: "The `action.yml` Specification & The Shell Rule"
-    content: |
-      A composite action is defined in an `action.yml` or `action.yaml` file:
+- title: "The `action.yml` Specification & The Shell Rule"
+  content: |
+    A composite action is defined in an `action.yml` or `action.yaml` file:
 
-      ```yaml
-      name: 'Setup and Warm Cache'
-      description: 'Configures Python, installs uv, and restores wheel cache'
-      inputs:
-        python-version:
-          description: 'Python version to install'
-          required: false
-          default: '3.12'
+    ```yaml
+    name: 'Setup and Warm Cache'
+    description: 'Configures Python, installs uv, and restores wheel cache'
+    inputs:
+      python-version:
+        description: 'Python version to install'
+        required: false
+        default: '3.12'
 
-      runs:
-        using: 'composite'
-        steps:
-          - name: Setup Python
-            uses: actions/setup-python@v5
-            with:
-              python-version: ${{ inputs.python-version }}
+    runs:
+      using: 'composite'
+      steps:
+        - name: Setup Python
+          uses: actions/setup-python@v5
+          with:
+            python-version: ${{ inputs.python-version }}
 
-          - name: Install Dependencies
-            shell: bash   # MANDATORY: Every run step in composite actions must declare shell!
-            run: |
-              curl -LsSf https://astral.sh/uv/install.sh | sh
-              uv pip install -e .
-      ```
+        - name: Install Dependencies
+          shell: bash   # MANDATORY: Every run step in composite actions must declare shell!
+          run: |
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            uv pip install -e .
+    ```
 
-      **The Mandatory Shell Rule:**
-      In standard workflows, `shell: bash` is optional on Linux runners. **In composite actions, `shell:` is strictly required on every single `run:` step.** Omitting `shell:` causes a fatal action validation error!
+    **The Mandatory Shell Rule:**
+    In standard workflows, `shell: bash` is optional on Linux runners. **In composite actions, `shell:` is strictly required on every single `run:` step.** Omitting `shell:` causes a fatal action validation error!
 
-      **Key insight:** Always specify `shell: bash` (or `shell: pwsh`) on every `run:` step in a composite action.
-    key_points:
-      - "Every run step in a composite action MUST explicitly declare 'shell:'"
-      - "Reference inputs using ${{ inputs.<input_name> }}"
-      - "Outputs are mapped from step outputs using the outputs: block"
+    **Key insight:** Always specify `shell: bash` (or `shell: pwsh`) on every `run:` step in a composite action.
+  key_points:
+  - "Every run step in a composite action MUST explicitly declare 'shell:'"
+  - "Reference inputs using ${{ inputs.<input_name> }}"
+  - "Outputs are mapped from step outputs using the outputs: block"
 
-  - title: "Local vs Remote Composite Actions"
-    content: |
-      You can consume composite actions locally from the same repository or publish them to a standalone repository.
+- title: "Local vs Remote Composite Actions"
+  content: |
+    You can consume composite actions locally from the same repository or publish them to a standalone repository.
 
-      **1. Local Repository Actions:**
-      Store in `.github/actions/<action-name>/action.yml` and invoke via relative path:
-      ```yaml
-      - uses: ./.github/actions/setup-toolchain
-        with:
-          python-version: '3.11'
-      ```
+    **1. Local Repository Actions:**
+    Store in `.github/actions/<action-name>/action.yml` and invoke via relative path:
+    ```yaml
+    - uses: ./.github/actions/setup-toolchain
+      with:
+        python-version: '3.11'
+    ```
 
-      **2. Remote Shared Actions:**
-      Store in a dedicated repository (e.g. `github.com/my-org/custom-actions`) and invoke via versioned ref:
-      ```yaml
-      - uses: my-org/custom-actions/setup-toolchain@v1
-      ```
+    **2. Remote Shared Actions:**
+    Store in a dedicated repository (e.g. `github.com/my-org/custom-actions`) and invoke via versioned ref:
+    ```yaml
+    - uses: my-org/custom-actions/setup-toolchain@v1
+    ```
 
-      **Key insight:** Store repository-specific setup helpers locally in `./.github/actions/` to keep your main workflow files clean and concise.
-    key_points:
-      - "Local actions use relative path syntax: uses: ./.github/actions/<name>"
-      - "Remote actions use standard GitHub repository syntax: uses: org/repo@v1"
-      - "Drastically cleans up bloated workflow files by encapsulating boilerplate"
+    **Key insight:** Store repository-specific setup helpers locally in `./.github/actions/` to keep your main workflow files clean and concise.
+  key_points:
+  - "Local actions use relative path syntax: uses: ./.github/actions/<name>"
+  - "Remote actions use standard GitHub repository syntax: uses: org/repo@v1"
+  - "Drastically cleans up bloated workflow files by encapsulating boilerplate"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect Action Definition File Name"
-    instructions: |
-      **What we're doing:** Inspect action metadata file conventions.
+- id: "cmd-01"
+  title: "Inspect Action Definition File Name"
+  instructions: |
+    **What we're doing:** Inspect action metadata file conventions.
 
-      **Why this matters:** GitHub Actions looks for `action.yml` or `action.yaml` in the action directory.
+    **Why this matters:** GitHub Actions looks for `action.yml` or `action.yaml` in the action directory.
 
-      **The command pattern:**
-      ```
-      echo "Standard Action Metadata: action.yml"
-      ```
+    **The command pattern:**
+    ```
+    echo "Standard Action Metadata: action.yml"
+    ```
 
-      Run this command:
-    command_hint: "echo 'Standard Action Metadata: action.yml'"
-    validation:
-      type: "command_output"
-      command: "echo 'Standard Action Metadata: action.yml'"
-      expected_contains: "action.yml"
-    points: 10
+    Run this command:
+  command_hint: "echo 'Standard Action Metadata: action.yml'"
+  validation:
+    type: "command_output"
+    command: "echo 'Standard Action Metadata: action.yml'"
+    expected_contains: "action.yml"
+  points: 10
 
 scenarios:
-  - id: "fix-missing-composite-shell"
-    title: "Add Mandatory Shell to Composite Action Step"
-    description: |
-      The composite action in `action.yml` fails validation because a `run:` step omitted the required `shell:` directive.
-      Edit `action.yml` and add `shell: bash` under the `run:` step.
-    manifest: |
-      name: 'Build Helper'
-      description: 'Helper action'
-      runs:
-        using: 'composite'
-        steps:
-          - run: echo "Initializing environment..."
-    hints:
-      - "Every 'run:' step in a composite action must have an explicit 'shell:' property."
-      - "Add 'shell: bash' under the run step."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-missing-composite-shell"
+  title: "Add Mandatory Shell to Composite Action Step"
+  description: |
+    The composite action in `action.yml` fails validation because a `run:` step omitted the required `shell:` directive.
+    Edit `action.yml` and add `shell: bash` under the `run:` step.
+  manifest: |
+    name: 'Build Helper'
+    description: 'Helper action'
+    runs:
+      using: 'composite'
+      steps:
+        - run: echo "Initializing environment..."
+  hints:
+  - "Every 'run:' step in a composite action must have an explicit 'shell:' property."
+  - "Add 'shell: bash' under the run step."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: runs.steps.0.shell
+      equals: bash
+      message: 'Composite action run steps must specify shell: bash.'
+  points: 25
 
-  - id: "invoke-local-composite-action"
-    title: "Invoke Local Composite Action Step"
-    description: |
-      Update `.github/workflows/ci.yml` to replace inline commands with a step invoking the local composite action at `./.github/actions/setup-env`.
-    manifest: |
-      name: App Pipeline
-      on: [push]
-      jobs:
-        build:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - uses: ./.github/actions/setup-env
-    hints:
-      - "Reference local actions using a relative path starting with './'."
-      - "Set 'uses: ./.github/actions/setup-env'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "invoke-local-composite-action"
+  title: "Invoke Local Composite Action Step"
+  description: |
+    Update `.github/workflows/ci.yml` to replace inline commands with a step invoking the local composite action at `./.github/actions/setup-env`.
+  manifest: |
+    name: App Pipeline
+    on: [push]
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: ./.github/actions/setup-env
+  hints:
+  - "Reference local actions using a relative path starting with './'."
+  - "Set 'uses: ./.github/actions/setup-env'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.build.steps
+      has_step_using: ./.github/actions/
+      message: 'Job step must invoke local action with uses: ./.github/actions/...'
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "Which property is strictly MANDATORY on every 'run:' step inside a composite action?"
-      options:
-        - "shell: (e.g. shell: bash)"
-        - "id:"
-        - "name:"
-        - "continue-on-error:"
-      correct: "shell: (e.g. shell: bash)"
-      explanation: "GitHub Actions requires composite action run steps to declare their interpreter explicitly via shell:."
-      points: 10
+  - type: "multiple_choice"
+    question: "Which property is strictly MANDATORY on every 'run:' step inside a
+      composite action?"
+    options:
+    - "shell: (e.g. shell: bash)"
+    - "id:"
+    - "name:"
+    - "continue-on-error:"
+    correct: "shell: (e.g. shell: bash)"
+    explanation: "GitHub Actions requires composite action run steps to declare their
+      interpreter explicitly via shell:."
+    points: 10
 
-    - type: "true_false"
-      question: "A composite action can invoke other external GitHub Actions inside its steps list."
-      correct: true
-      explanation: "Composite actions can seamlessly mix 'uses:' steps (invoking other actions) and 'run:' steps (shell scripts)."
-      points: 10
+  - type: "true_false"
+    question: "A composite action can invoke other external GitHub Actions inside
+      its steps list."
+    correct: true
+    explanation: "Composite actions can seamlessly mix 'uses:' steps (invoking other
+      actions) and 'run:' steps (shell scripts)."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "How do you invoke a local composite action stored inside your repository?"
-      options:
-        - "uses: ./.github/actions/<name>"
-        - "action: local/<name>"
-        - "call: .github/actions/<name>"
-        - "import: .github/actions/<name>"
-      correct: "uses: ./.github/actions/<name>"
-      explanation: "Local actions are referenced using relative paths starting with './'."
-      points: 10
+  - type: "multiple_choice"
+    question: "How do you invoke a local composite action stored inside your repository?"
+    options:
+    - "uses: ./.github/actions/<name>"
+    - "action: local/<name>"
+    - "call: .github/actions/<name>"
+    - "import: .github/actions/<name>"
+    correct: "uses: ./.github/actions/<name>"
+    explanation: "Local actions are referenced using relative paths starting with
+      './'."
+    points: 10
+  - id: q-fill-composite-using
+    type: fill_yaml
+    question: What runtime identifier must be declared in action.yml under 
+      'runs.using:' for a composite action?
+    yaml_template: "runs:\n  using: __________\n  steps:\n    - run: echo 'Running
+      composite step'\n      shell: bash\n"
+    expected: composite
+    explanation: "'using: composite' informs the runner that the action packages a
+      bundle of workflow steps."
+    points: 10

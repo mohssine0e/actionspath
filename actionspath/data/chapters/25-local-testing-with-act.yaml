@@ -1,191 +1,215 @@
 chapter:
   number: 25
   title: "Local Workflow Testing with act"
-  description: "Test and debug GitHub Actions workflows locally on your laptop without pushing git commits using nektos/act, runner images, and secret mocking."
+  description: "Test and debug GitHub Actions workflows locally on your laptop without
+    pushing git commits using nektos/act, runner images, and secret mocking."
 
 concepts:
-  - title: "The Agony of 'git commit -m \"fix ci 4\"'"
-    content: |
-      Every developer knows the pain of debugging a CI pipeline: edit YAML, commit, push, wait 3 minutes for a GitHub runner, see a syntax typo, commit again, push again.
+- title: "The Agony of 'git commit -m \"fix ci 4\"'"
+  content: |
+    Every developer knows the pain of debugging a CI pipeline: edit YAML, commit, push, wait 3 minutes for a GitHub runner, see a syntax typo, commit again, push again.
 
-      **The Flight Simulator Analogy**
+    **The Flight Simulator Analogy**
 
-      An airline pilot does not test emergency stall recovery by taking a real 747 into the clouds with paying passengers aboard. They step into a local flight simulator where they can reset instantly, test edge cases, and make mistakes without risk or delay.
+    An airline pilot does not test emergency stall recovery by taking a real 747 into the clouds with paying passengers aboard. They step into a local flight simulator where they can reset instantly, test edge cases, and make mistakes without risk or delay.
 
-      ```
-      TRADITIONAL CI DEBUGGING (SLUGGISH & NOISY):
-      Edit YAML ──► git commit ──► git push ──► Wait for GitHub Queue ──► Fail (Repeat ×15)
+    ```
+    TRADITIONAL CI DEBUGGING (SLUGGISH & NOISY):
+    Edit YAML ──► git commit ──► git push ──► Wait for GitHub Queue ──► Fail (Repeat ×15)
 
-      LOCAL FAST-LOOP WITH ACT (INSTANT ITERATION):
-      Edit YAML ──► run 'act' locally on Docker ──► Immediate Feedback in 3 seconds!
-      ```
+    LOCAL FAST-LOOP WITH ACT (INSTANT ITERATION):
+    Edit YAML ──► run 'act' locally on Docker ──► Immediate Feedback in 3 seconds!
+    ```
 
-      **What is `act`?**
-      `act` (by Nektos) is a tool that reads your `.github/workflows/` files, mounts your local repository into local Docker containers mimicking GitHub-hosted runners, and executes jobs locally on your machine.
+    **What is `act`?**
+    `act` (by Nektos) is a tool that reads your `.github/workflows/` files, mounts your local repository into local Docker containers mimicking GitHub-hosted runners, and executes jobs locally on your machine.
 
-      **Key insight:** Running workflows locally eliminates noisy commit histories and shortens feedback loops from minutes to seconds.
-    key_points:
-      - "act executes GitHub Actions workflows locally using Docker"
-      - "Eliminates embarrassing 'fix ci', 'test ci 2' commit spam"
-      - "Identifies syntax errors and broken steps before pushing code"
+    **Key insight:** Running workflows locally eliminates noisy commit histories and shortens feedback loops from minutes to seconds.
+  key_points:
+  - "act executes GitHub Actions workflows locally using Docker"
+  - "Eliminates embarrassing 'fix ci', 'test ci 2' commit spam"
+  - "Identifies syntax errors and broken steps before pushing code"
 
-  - title: "Targeting Events, Jobs & Dry Runs"
-    content: |
-      `act` provides fine-grained controls to test specific events or individual jobs:
+- title: "Targeting Events, Jobs & Dry Runs"
+  content: |
+    `act` provides fine-grained controls to test specific events or individual jobs:
 
-      **1. Run Default Push Event:**
-      ```bash
-      act
-      ```
+    **1. Run Default Push Event:**
+    ```bash
+    act
+    ```
 
-      **2. Simulate Pull Request Event:**
-      ```bash
-      act pull_request
-      ```
+    **2. Simulate Pull Request Event:**
+    ```bash
+    act pull_request
+    ```
 
-      **3. Run a Specific Job Only:**
-      ```bash
-      act -j test-backend
-      ```
+    **3. Run a Specific Job Only:**
+    ```bash
+    act -j test-backend
+    ```
 
-      **4. Dry-Run / Syntax Validation (`-n`):**
-      Parses your workflow files, validates steps and dependencies, but does not execute commands:
-      ```bash
-      act -n
-      ```
+    **4. Dry-Run / Syntax Validation (`-n`):**
+    Parses your workflow files, validates steps and dependencies, but does not execute commands:
+    ```bash
+    act -n
+    ```
 
-      **5. List All Workflows and Jobs (`-l`):**
-      ```bash
-      act -l
-      ```
+    **5. List All Workflows and Jobs (`-l`):**
+    ```bash
+    act -l
+    ```
 
-      **Key insight:** Use `act -j <job_id>` to iterate rapidly on a single failing step rather than running your entire multi-job pipeline.
-    key_points:
-      - "Run specific jobs with 'act -j <job_name>'"
-      - "Simulate events like pull_request or release"
-      - "Use 'act -n' for instant dry-run syntax verification"
+    **Key insight:** Use `act -j <job_id>` to iterate rapidly on a single failing step rather than running your entire multi-job pipeline.
+  key_points:
+  - "Run specific jobs with 'act -j <job_name>'"
+  - "Simulate events like pull_request or release"
+  - "Use 'act -n' for instant dry-run syntax verification"
 
-  - title: "Mocking Secrets and Event Payloads"
-    content: |
-      Local runs do not have access to GitHub repository secrets. `act` allows you to mock secrets and event payloads locally.
+- title: "Mocking Secrets and Event Payloads"
+  content: |
+    Local runs do not have access to GitHub repository secrets. `act` allows you to mock secrets and event payloads locally.
 
-      **Passing Secrets:**
-      ```bash
-      # Inline secret
-      act -s API_KEY=my-test-secret-key
+    **Passing Secrets:**
+    ```bash
+    # Inline secret
+    act -s API_KEY=my-test-secret-key
 
-      # Secrets file (ignored by .gitignore!)
-      act --secret-file .secrets
-      ```
+    # Secrets file (ignored by .gitignore!)
+    act --secret-file .secrets
+    ```
 
-      **Mocking Event Payloads:**
-      Test how your workflow handles specific PR labels or branch names by passing an event JSON payload:
-      ```bash
-      act pull_request -e event.json
-      ```
+    **Mocking Event Payloads:**
+    Test how your workflow handles specific PR labels or branch names by passing an event JSON payload:
+    ```bash
+    act pull_request -e event.json
+    ```
 
-      **Key insight:** Store development credentials in a `.secrets` file (added to `.gitignore`) so local workflow runs can test external service integrations safely.
-    key_points:
-      - "Mock secrets via 'act -s KEY=val' or '--secret-file .secrets'"
-      - "Always add .secrets to .gitignore to prevent accidental leakage"
-      - "Pass simulated GitHub webhook payloads with '-e event.json'"
+    **Key insight:** Store development credentials in a `.secrets` file (added to `.gitignore`) so local workflow runs can test external service integrations safely.
+  key_points:
+  - "Mock secrets via 'act -s KEY=val' or '--secret-file .secrets'"
+  - "Always add .secrets to .gitignore to prevent accidental leakage"
+  - "Pass simulated GitHub webhook payloads with '-e event.json'"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect act CLI Tooling"
-    instructions: |
-      **What we're doing:** Inspect the `act` CLI runner availability in your terminal.
+- id: "cmd-01"
+  title: "Inspect act CLI Tooling"
+  instructions: |
+    **What we're doing:** Inspect the `act` CLI runner availability in your terminal.
 
-      **Why this matters:** `act` is the standard tool for local GitHub Actions execution.
+    **Why this matters:** `act` is the standard tool for local GitHub Actions execution.
 
-      **The command pattern:**
-      ```
-      which act 2>/dev/null || echo "act runner CLI"
-      ```
+    **The command pattern:**
+    ```
+    which act 2>/dev/null || echo "act runner CLI"
+    ```
 
-      Run this command:
-    command_hint: "which act 2>/dev/null || echo \"act runner CLI\""
-    validation:
-      type: "command_output"
-      command: "which act 2>/dev/null || echo 'act runner CLI'"
-      expected_contains: "act"
-    points: 10
+    Run this command:
+  command_hint: "which act 2>/dev/null || echo \"act runner CLI\""
+  validation:
+    type: "command_output"
+    command: "which act 2>/dev/null || echo 'act runner CLI'"
+    expected_contains: "act"
+  points: 10
 
 scenarios:
-  - id: "fix-act-runner-image-compatibility"
-    title: "Fix Workflow for Local act Execution"
-    description: |
-      A workflow step failed in local `act` testing because it used a non-existent runner alias `runs-on: linux`.
-      Edit `.github/workflows/ci.yml` and correct the runner to standard `ubuntu-latest`.
-    manifest: |
-      name: Local Validation
-      on: [push]
-      jobs:
-        verify:
-          runs-on: linux
-          steps:
-            - run: echo "Local test..."
-    hints:
-      - "Standard hosted and act-supported alias is 'ubuntu-latest'."
-      - "Change 'runs-on: linux' to 'runs-on: ubuntu-latest'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-act-runner-image-compatibility"
+  title: "Fix Workflow for Local act Execution"
+  description: |
+    A workflow step failed in local `act` testing because it used a non-existent runner alias `runs-on: linux`.
+    Edit `.github/workflows/ci.yml` and correct the runner to standard `ubuntu-latest`.
+  manifest: |
+    name: Local Validation
+    on: [push]
+    jobs:
+      verify:
+        runs-on: linux
+        steps:
+          - run: echo "Local test..."
+  hints:
+  - "Standard hosted and act-supported alias is 'ubuntu-latest'."
+  - "Change 'runs-on: linux' to 'runs-on: ubuntu-latest'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.test.runs-on
+      contains: ubuntu
+      message: Workflows for local act execution must target ubuntu runners.
+  points: 25
 
-  - id: "mock-environment-secrets"
-    title: "Configure Secret Mocking Pattern"
-    description: |
-      The step expects an environment variable `CI_TOKEN: ${{ secrets.CI_TOKEN }}`.
-      Ensure the workflow maps the secret into the step's `env:` block so `act -s CI_TOKEN=xyz` can inject it properly.
-    manifest: |
-      name: Secret Check
-      on: [push]
-      jobs:
-        auth-test:
-          runs-on: ubuntu-latest
-          steps:
-            - name: Verify Secret Presence
-              run: |
-                if [ -z "$CI_TOKEN" ]; then
-                  echo "Missing secret!"
-                  exit 1
-                fi
-                echo "Secret loaded successfully"
-    hints:
-      - "Add 'env:' under the step."
-      - "Map 'CI_TOKEN: ${{ secrets.CI_TOKEN }}'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "mock-environment-secrets"
+  title: "Configure Secret Mocking Pattern"
+  description: |
+    The step expects an environment variable `CI_TOKEN: ${{ secrets.CI_TOKEN }}`.
+    Ensure the workflow maps the secret into the step's `env:` block so `act -s CI_TOKEN=xyz` can inject it properly.
+  manifest: |
+    name: Secret Check
+    on: [push]
+    jobs:
+      auth-test:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Verify Secret Presence
+            run: |
+              if [ -z "$CI_TOKEN" ]; then
+                echo "Missing secret!"
+                exit 1
+              fi
+              echo "Secret loaded successfully"
+  hints:
+  - "Add 'env:' under the step."
+  - "Map 'CI_TOKEN: ${{ secrets.CI_TOKEN }}'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.test.steps
+      has_step_with_run: API_KEY
+      message: Step must reference secret via environment variable.
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "What underlying technology does 'act' use to execute GitHub Actions workflows on your local laptop?"
-      options:
-        - "Docker containers mimicking GitHub runner environments"
-        - "QEMU virtual machines"
-        - "VirtualBox"
-        - "Direct host bash execution only"
-      correct: "Docker containers mimicking GitHub runner environments"
-      explanation: "act downloads runner container images and executes workflow steps inside local Docker containers."
-      points: 10
+  - type: "multiple_choice"
+    question: "What underlying technology does 'act' use to execute GitHub Actions
+      workflows on your local laptop?"
+    options:
+    - "Docker containers mimicking GitHub runner environments"
+    - "QEMU virtual machines"
+    - "VirtualBox"
+    - "Direct host bash execution only"
+    correct: "Docker containers mimicking GitHub runner environments"
+    explanation: "act downloads runner container images and executes workflow steps
+      inside local Docker containers."
+    points: 10
 
-    - type: "true_false"
-      question: "The 'act -j <job_id>' flag allows you to test a single specific job without running the whole workflow."
-      correct: true
-      explanation: "act -j filters execution to only run the designated job and its declared dependencies."
-      points: 10
+  - type: "true_false"
+    question: "The 'act -j <job_id>' flag allows you to test a single specific job
+      without running the whole workflow."
+    correct: true
+    explanation: "act -j filters execution to only run the designated job and its
+      declared dependencies."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "Which file should be added to .gitignore when using act to prevent leaking local development secrets?"
-      options:
-        - ".secrets"
-        - "action.yml"
-        - ".github/workflows"
-        - "Dockerfile"
-      correct: ".secrets"
-      explanation: "Local secret files (.secrets) passed via --secret-file must be excluded in .gitignore to avoid committing credentials."
-      points: 10
+  - type: "multiple_choice"
+    question: "Which file should be added to .gitignore when using act to prevent
+      leaking local development secrets?"
+    options:
+    - ".secrets"
+    - "action.yml"
+    - ".github/workflows"
+    - "Dockerfile"
+    correct: ".secrets"
+    explanation: "Local secret files (.secrets) passed via --secret-file must be excluded
+      in .gitignore to avoid committing credentials."
+    points: 10
+  - id: q-fill-act-secret-file
+    type: fill_yaml
+    question: Which flag is passed to the 'act' CLI to read simulated secrets 
+      from a local .env file?
+    yaml_template: "$ act --secret-file __________\n"
+    expected: .secrets
+    explanation: "'--secret-file .secrets' instructs act to inject local dummy credentials
+      without committing secrets to git."
+    points: 10

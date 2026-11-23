@@ -1,166 +1,191 @@
 chapter:
   number: 29
   title: "Pipeline Telemetry & Observability"
-  description: "Instrument CI/CD pipelines with OpenTelemetry, export spans to Datadog or Honeycomb, and monitor queue latency and failure rates."
+  description: "Instrument CI/CD pipelines with OpenTelemetry, export spans to Datadog
+    or Honeycomb, and monitor queue latency and failure rates."
 
 concepts:
-  - title: "The Formula 1 Pit Stop Analogy"
-    content: |
-      You monitor your production microservices with traces and metrics. Why treat your CI/CD pipelines as black boxes?
+- title: "The Formula 1 Pit Stop Analogy"
+  content: |
+    You monitor your production microservices with traces and metrics. Why treat your CI/CD pipelines as black boxes?
 
-      **The Formula 1 Pit Crew Analogy**
+    **The Formula 1 Pit Crew Analogy**
 
-      In Formula 1 racing, a pit crew doesn't merely ask: *"Did the tires get replaced?"* They capture telemetry on every millisecond: 0.4s to loosen the lug nut, 0.6s to pull the wheel, 0.5s to fit the fresh tire. If pit stops slow down from 2.0s to 4.5s, sensors reveal which mechanic or equipment caused the bottleneck.
-      Pipeline observability does the same for your software delivery: measuring step latencies, queue wait times, and failure frequencies.
+    In Formula 1 racing, a pit crew doesn't merely ask: *"Did the tires get replaced?"* They capture telemetry on every millisecond: 0.4s to loosen the lug nut, 0.6s to pull the wheel, 0.5s to fit the fresh tire. If pit stops slow down from 2.0s to 4.5s, sensors reveal which mechanic or equipment caused the bottleneck.
+    Pipeline observability does the same for your software delivery: measuring step latencies, queue wait times, and failure frequencies.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │ WORKFLOW TRACE SPAN (traceparent: 00-4bf92f3577b34da6) │
-      │                                                        │
-      │ ├── Queue Time (Waiting for Runner): 45s               │
-      │ ├── Job: Build & Test (Total: 4m 12s)                  │
-      │ │    ├── actions/checkout: 4s                          │
-      │ │    ├── actions/setup-node: 3s                        │
-      │ │    ├── npm install (Cache Hit): 6s                   │
-      │ │    └── npm test (Span: Test Suite): 3m 59s           │
-      │ └── Job: Container Push: 28s                           │
-      └────────────────────────────────────────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │ WORKFLOW TRACE SPAN (traceparent: 00-4bf92f3577b34da6) │
+    │                                                        │
+    │ ├── Queue Time (Waiting for Runner): 45s               │
+    │ ├── Job: Build & Test (Total: 4m 12s)                  │
+    │ │    ├── actions/checkout: 4s                          │
+    │ │    ├── actions/setup-node: 3s                        │
+    │ │    ├── npm install (Cache Hit): 6s                   │
+    │ │    └── npm test (Span: Test Suite): 3m 59s           │
+    │ └── Job: Container Push: 28s                           │
+    └────────────────────────────────────────────────────────┘
+    ```
 
-      **Key insight:** Tracing workflows reveals the exact steps causing build bloat and highlights flaky tests consuming runner budgets.
-    key_points:
-      - "Pipeline observability applies APM tracing and metrics to CI/CD workflows"
-      - "Tracks the Four Golden Signals of CI: Queue Time, Duration, Failure Rate, and Cost"
-      - "Pinpoints bottlenecks and flaky tests across thousands of pipeline runs"
+    **Key insight:** Tracing workflows reveals the exact steps causing build bloat and highlights flaky tests consuming runner budgets.
+  key_points:
+  - "Pipeline observability applies APM tracing and metrics to CI/CD workflows"
+  - "Tracks the Four Golden Signals of CI: Queue Time, Duration, Failure Rate, and
+    Cost"
+  - "Pinpoints bottlenecks and flaky tests across thousands of pipeline runs"
 
-  - title: "OpenTelemetry & Trace Context"
-    content: |
-      The industry standard for observability is **OpenTelemetry (OTel)**. GitHub Actions runners can emit distributed trace spans to backends like Honeycomb, Datadog, Lightstep, or Grafana Tempo.
+- title: "OpenTelemetry & Trace Context"
+  content: |
+    The industry standard for observability is **OpenTelemetry (OTel)**. GitHub Actions runners can emit distributed trace spans to backends like Honeycomb, Datadog, Lightstep, or Grafana Tempo.
 
-      **Distributed Trace Propagation:**
-      When GitHub Actions kicks off a deployment to AWS or Kubernetes, the pipeline injects the W3C `traceparent` header.
-      This links the GitHub Actions build span directly to the cloud deployment span and subsequent production API requests in one single distributed trace!
+    **Distributed Trace Propagation:**
+    When GitHub Actions kicks off a deployment to AWS or Kubernetes, the pipeline injects the W3C `traceparent` header.
+    This links the GitHub Actions build span directly to the cloud deployment span and subsequent production API requests in one single distributed trace!
 
-      ```yaml
-      - name: Send Deployment Trace Event
-        run: |
-          curl -X POST https://api.honeycomb.io/v1/events/ci \
-            -H "X-Honeycomb-Team: ${{ secrets.HONEYCOMB_KEY }}" \
-            -d "{\"step\": \"compile\", \"duration_ms\": $SECONDS}"
-      ```
+    ```yaml
+    - name: Send Deployment Trace Event
+      run: |
+        curl -X POST https://api.honeycomb.io/v1/events/ci \
+          -H "X-Honeycomb-Team: ${{ secrets.HONEYCOMB_KEY }}" \
+          -d "{\"step\": \"compile\", \"duration_ms\": $SECONDS}"
+    ```
 
-      **Key insight:** Distributed trace context connects the developer commit to the CI build and down to the running production container.
-    key_points:
-      - "OpenTelemetry standardizes trace spans for workflows, jobs, and steps"
-      - "W3C traceparent headers link CI traces to cloud application traces"
-      - "Enables deep latency comparisons across branches and pull requests"
+    **Key insight:** Distributed trace context connects the developer commit to the CI build and down to the running production container.
+  key_points:
+  - "OpenTelemetry standardizes trace spans for workflows, jobs, and steps"
+  - "W3C traceparent headers link CI traces to cloud application traces"
+  - "Enables deep latency comparisons across branches and pull requests"
 
-  - title: "Detecting Flaky Tests and SLA Bottlenecks"
-    content: |
-      A **flaky test** is a test that passes or fails non-deterministically without any code changes. Flaky tests destroy developer confidence in CI.
+- title: "Detecting Flaky Tests and SLA Bottlenecks"
+  content: |
+    A **flaky test** is a test that passes or fails non-deterministically without any code changes. Flaky tests destroy developer confidence in CI.
 
-      **Telemetry Strategies for Flakiness:**
-      - **Automatic Retry with Telemetry:** Running tests with tools like `pytest --reruns 2` and logging retry counts to metrics dashboards.
-      - **JUnit XML Test Ingestion:** Parsing test reports and graphing failure rates per individual test function over time.
-      - **Pipeline SLA Alerts:** Firing a webhook alert if workflow duration exceeds a 10-minute Service Level Agreement (SLA).
+    **Telemetry Strategies for Flakiness:**
+    - **Automatic Retry with Telemetry:** Running tests with tools like `pytest --reruns 2` and logging retry counts to metrics dashboards.
+    - **JUnit XML Test Ingestion:** Parsing test reports and graphing failure rates per individual test function over time.
+    - **Pipeline SLA Alerts:** Firing a webhook alert if workflow duration exceeds a 10-minute Service Level Agreement (SLA).
 
-      **Key insight:** Collecting metrics over time turns subjective complaints ("CI feels slow") into objective engineering targets.
-    key_points:
-      - "Flaky tests fail non-deterministically, wasting time and eroding trust"
-      - "Ingest JUnit XML reports into telemetry databases to track flaky test frequencies"
-      - "Establish pipeline SLAs (e.g. 95% of PR builds finish under 8 minutes)"
+    **Key insight:** Collecting metrics over time turns subjective complaints ("CI feels slow") into objective engineering targets.
+  key_points:
+  - "Flaky tests fail non-deterministically, wasting time and eroding trust"
+  - "Ingest JUnit XML reports into telemetry databases to track flaky test frequencies"
+  - "Establish pipeline SLAs (e.g. 95% of PR builds finish under 8 minutes)"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Measure Command Execution Duration"
-    instructions: |
-      **What we're doing:** Inspect the standard bash timing utility.
+- id: "cmd-01"
+  title: "Measure Command Execution Duration"
+  instructions: |
+    **What we're doing:** Inspect the standard bash timing utility.
 
-      **Why this matters:** In telemetry collection, shell timers record step durations.
+    **Why this matters:** In telemetry collection, shell timers record step durations.
 
-      **The command pattern:**
-      ```
-      time echo "Telemetry timing check"
-      ```
+    **The command pattern:**
+    ```
+    time echo "Telemetry timing check"
+    ```
 
-      Run this command:
-    command_hint: "time echo \"Telemetry timing check\""
-    validation:
-      type: "command_output"
-      command: "time echo 'Telemetry timing check'"
-      expected_contains: "Telemetry"
-    points: 10
+    Run this command:
+  command_hint: "time echo \"Telemetry timing check\""
+  validation:
+    type: "command_output"
+    command: "time echo 'Telemetry timing check'"
+    expected_contains: "Telemetry"
+  points: 10
 
 scenarios:
-  - id: "record-step-timing"
-    title: "Capture Step Duration to Environment"
-    description: |
-      Add a step timer that captures elapsed seconds and prints duration metrics in `.github/workflows/ci.yml`.
-    manifest: |
-      name: Telemetry Build
-      on: [push]
-      jobs:
-        build:
-          runs-on: ubuntu-latest
-          steps:
-            - name: Measure Task
-              run: |
-                START_TIME=$SECONDS
-                echo "Running intensive build..."
-                ELAPSED=$(( SECONDS - START_TIME ))
-                echo "Task completed in ${ELAPSED}s"
-    hints:
-      - "Bash provides the built-in $SECONDS variable to measure elapsed seconds."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "record-step-timing"
+  title: "Capture Step Duration to Environment"
+  description: |
+    Add a step timer that captures elapsed seconds and prints duration metrics in `.github/workflows/ci.yml`.
+  manifest: |
+    name: Telemetry Build
+    on: [push]
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Measure Task
+            run: |
+              START_TIME=$SECONDS
+              echo "Running intensive build..."
+              ELAPSED=$(( SECONDS - START_TIME ))
+              echo "Task completed in ${ELAPSED}s"
+  hints:
+  - "Bash provides the built-in $SECONDS variable to measure elapsed seconds."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.build.steps
+      has_step_with_run: GITHUB_ENV
+      message: Must record start time timestamp to $GITHUB_ENV.
+  points: 25
 
-  - id: "alert-on-slow-pipeline-duration"
-    title: "Configure Pipeline SLA Duration Guard"
-    description: |
-      Update `.github/workflows/ci.yml` to specify a job-level `timeout-minutes: 10` so rogue processes cannot run indefinitely and burn runner credits.
-    manifest: |
-      name: Guarded CI
-      on: [push]
-      jobs:
-        test:
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Guarded execution..."
-    hints:
-      - "Add 'timeout-minutes: 10' directly under 'test:'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "alert-on-slow-pipeline-duration"
+  title: "Configure Pipeline SLA Duration Guard"
+  description: |
+    Update `.github/workflows/ci.yml` to specify a job-level `timeout-minutes: 10` so rogue processes cannot run indefinitely and burn runner credits.
+  manifest: |
+    name: Guarded CI
+    on: [push]
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Guarded execution..."
+  hints:
+  - "Add 'timeout-minutes: 10' directly under 'test:'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.build.timeout-minutes
+      exists: true
+      message: Job must declare timeout-minutes to enforce SLA.
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "Which of the following is considered one of the Four Golden Signals of CI/CD pipeline health?"
-      options:
-        - "Queue Time (time spent waiting for an available runner)"
-        - "Git author email length"
-        - "Repository disk size"
-        - "Number of open pull requests"
-      correct: "Queue Time (time spent waiting for an available runner)"
-      explanation: "Queue time measures infrastructure availability and capacity bottlenecks before jobs even begin."
-      points: 10
+  - type: "multiple_choice"
+    question: "Which of the following is considered one of the Four Golden Signals
+      of CI/CD pipeline health?"
+    options:
+    - "Queue Time (time spent waiting for an available runner)"
+    - "Git author email length"
+    - "Repository disk size"
+    - "Number of open pull requests"
+    correct: "Queue Time (time spent waiting for an available runner)"
+    explanation: "Queue time measures infrastructure availability and capacity bottlenecks
+      before jobs even begin."
+    points: 10
 
-    - type: "true_false"
-      question: "OpenTelemetry trace context allows you to link CI build spans directly to production cloud deployment spans."
-      correct: true
-      explanation: "Using standard traceparent headers, traces flow seamlessly from CI execution into cloud infrastructure."
-      points: 10
+  - type: "true_false"
+    question: "OpenTelemetry trace context allows you to link CI build spans directly
+      to production cloud deployment spans."
+    correct: true
+    explanation: "Using standard traceparent headers, traces flow seamlessly from
+      CI execution into cloud infrastructure."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "What workflow configuration prevents hanging scripts from running indefinitely and exhausting budgets?"
-      options:
-        - "timeout-minutes"
-        - "max-duration"
-        - "limit-time"
-        - "kill-after"
-      correct: "timeout-minutes"
-      explanation: "The 'timeout-minutes' setting terminates jobs that exceed the designated duration."
-      points: 10
+  - type: "multiple_choice"
+    question: "What workflow configuration prevents hanging scripts from running indefinitely
+      and exhausting budgets?"
+    options:
+    - "timeout-minutes"
+    - "max-duration"
+    - "limit-time"
+    - "kill-after"
+    correct: "timeout-minutes"
+    explanation: "The 'timeout-minutes' setting terminates jobs that exceed the designated
+      duration."
+    points: 10
+  - id: q-fill-timeout-minutes
+    type: fill_yaml
+    question: Complete the job setting that automatically cancels a job if it 
+      runs longer than 15 minutes.
+    yaml_template: "jobs:\n  build:\n    runs-on: ubuntu-latest\n    __________: 15\n"
+    expected: timeout-minutes
+    explanation: "'timeout-minutes: 15' prevents hung pipelines and runaway runner
+      minute costs."
+    points: 10

@@ -1,190 +1,214 @@
 chapter:
   number: 17
   title: "Environment Protection Rules & Approval Gates"
-  description: "Implement enterprise release governance using GitHub Environments, required manual reviewers, deployment wait timers, and branch restrictions."
+  description: "Implement enterprise release governance using GitHub Environments,
+    required manual reviewers, deployment wait timers, and branch restrictions."
 
 concepts:
-  - title: "What are GitHub Environments?"
-    content: |
-      Continuous Integration is automated, but Continuous Deployment to critical production infrastructure often requires human oversight and governance. **GitHub Environments** provide this control gate.
+- title: "What are GitHub Environments?"
+  content: |
+    Continuous Integration is automated, but Continuous Deployment to critical production infrastructure often requires human oversight and governance. **GitHub Environments** provide this control gate.
 
-      **The Bank Air-Lock Analogy**
+    **The Bank Air-Lock Analogy**
 
-      Anyone can enter the bank lobby (CI tests and staging), but opening the vault door (production) requires passing through a reinforced air-lock where two authorized bank managers must verify credentials and turn two physical keys simultaneously.
+    Anyone can enter the bank lobby (CI tests and staging), but opening the vault door (production) requires passing through a reinforced air-lock where two authorized bank managers must verify credentials and turn two physical keys simultaneously.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │ JOB: deploy-production                                │
-      │                                                        │
-      │  environment: production                               │
-      │                                                        │
-      │   ┌──────────────────────────────────────────────┐     │
-      │   │ GITHUB APPROVAL GATE (Paused)                │     │
-      │   │                                              │     │
-      │   │ - Waiting for approval from: @devops-leads   │     │
-      │   │ - Wait timer: 10 minutes cooling delay       │     │
-      │   │ - Branch restriction: Must be 'main'         │     │
-      │   └──────────────────────────────────────────────┘     │
-      │                          │                             │
-      │              [Approved by Alice & Bob]                 │
-      │                          ▼                             │
-      │   Job Steps Execute: Deploy to AWS Production          │
-      └────────────────────────────────────────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │ JOB: deploy-production                                │
+    │                                                        │
+    │  environment: production                               │
+    │                                                        │
+    │   ┌──────────────────────────────────────────────┐     │
+    │   │ GITHUB APPROVAL GATE (Paused)                │     │
+    │   │                                              │     │
+    │   │ - Waiting for approval from: @devops-leads   │     │
+    │   │ - Wait timer: 10 minutes cooling delay       │     │
+    │   │ - Branch restriction: Must be 'main'         │     │
+    │   └──────────────────────────────────────────────┘     │
+    │                          │                             │
+    │              [Approved by Alice & Bob]                 │
+    │                          ▼                             │
+    │   Job Steps Execute: Deploy to AWS Production          │
+    └────────────────────────────────────────────────────────┘
+    ```
 
-      **Syntax:**
-      ```yaml
-      jobs:
-        deploy:
-          runs-on: ubuntu-latest
-          environment:
-            name: production
-            url: https://app.example.com
-          steps:
-            - run: ./deploy-to-prod.sh
-      ```
-
-      **Key insight:** Defining `environment: <name>` pauses job execution until all environment protection rules configured in the repository settings are satisfied.
-    key_points:
-      - "Environments represent target deployment targets (production, staging, qa)"
-      - "Pauses execution until required manual approvals or timers are met"
-      - "Associates environment-scoped secrets and tracks deployment history"
-
-  - title: "Protection Rules: Reviewers and Wait Timers"
-    content: |
-      Inside repository settings (Settings > Environments), administrators configure protection rules:
-
-      **1. Required Reviewers:**
-      Specify individuals or teams who must manually review and approve the deployment. The workflow pauses in a "Waiting" state and sends email/Slack notifications.
-
-      **2. Wait Timer:**
-      Enforces a mandatory delay (from 1 to 43,200 minutes) after the job is triggered before it starts executing. This allows automated tests in staging to run or provides a cooling-off window.
-
-      **3. Deployment Branches:**
-      Restricts deployments so that only approved branches (e.g. `main` or `release/*`) can deploy to that environment. A feature branch pull request cannot accidentally deploy to production.
-
-      **Key insight:** Protection rules are configured securely in GitHub UI/API settings, preventing developers from bypassing gates by editing workflow YAML.
-    key_points:
-      - "Required reviewers must click 'Review deployments' and Approve before execution"
-      - "Wait timers enforce cooldown intervals before starting sensitive steps"
-      - "Deployment branch restrictions ensure production deploys only from main"
-
-  - title: "Dynamic Environment URLs"
-    content: |
-      GitHub Environments can record the live URL of the deployed application, displaying an interactive "View deployment" button in pull requests and commit timelines.
-
-      ```yaml
+    **Syntax:**
+    ```yaml
+    jobs:
       deploy:
         runs-on: ubuntu-latest
         environment:
-          name: preview-${{ github.event.number }}
-          url: ${{ steps.deploy.outputs.preview_url }}
+          name: production
+          url: https://app.example.com
         steps:
-          - id: deploy
-            run: |
-              URL="https://pr-${{ github.event.number }}.preview.app"
-              echo "preview_url=$URL" >> "$GITHUB_OUTPUT"
-      ```
+          - run: ./deploy-to-prod.sh
+    ```
 
-      **Key insight:** Outputting dynamic environment URLs provides instant one-click access for reviewers to test live preview environments.
-    key_points:
-      - "url: records the destination web address for the deployment"
-      - "Can be hardcoded (https://example.com) or dynamic (${{ steps... }})"
-      - "Renders a clickable 'View deployment' button on GitHub commit pages"
+    **Key insight:** Defining `environment: <name>` pauses job execution until all environment protection rules configured in the repository settings are satisfied.
+  key_points:
+  - "Environments represent target deployment targets (production, staging, qa)"
+  - "Pauses execution until required manual approvals or timers are met"
+  - "Associates environment-scoped secrets and tracks deployment history"
+
+- title: "Protection Rules: Reviewers and Wait Timers"
+  content: |
+    Inside repository settings (Settings > Environments), administrators configure protection rules:
+
+    **1. Required Reviewers:**
+    Specify individuals or teams who must manually review and approve the deployment. The workflow pauses in a "Waiting" state and sends email/Slack notifications.
+
+    **2. Wait Timer:**
+    Enforces a mandatory delay (from 1 to 43,200 minutes) after the job is triggered before it starts executing. This allows automated tests in staging to run or provides a cooling-off window.
+
+    **3. Deployment Branches:**
+    Restricts deployments so that only approved branches (e.g. `main` or `release/*`) can deploy to that environment. A feature branch pull request cannot accidentally deploy to production.
+
+    **Key insight:** Protection rules are configured securely in GitHub UI/API settings, preventing developers from bypassing gates by editing workflow YAML.
+  key_points:
+  - "Required reviewers must click 'Review deployments' and Approve before execution"
+  - "Wait timers enforce cooldown intervals before starting sensitive steps"
+  - "Deployment branch restrictions ensure production deploys only from main"
+
+- title: "Dynamic Environment URLs"
+  content: |
+    GitHub Environments can record the live URL of the deployed application, displaying an interactive "View deployment" button in pull requests and commit timelines.
+
+    ```yaml
+    deploy:
+      runs-on: ubuntu-latest
+      environment:
+        name: preview-${{ github.event.number }}
+        url: ${{ steps.deploy.outputs.preview_url }}
+      steps:
+        - id: deploy
+          run: |
+            URL="https://pr-${{ github.event.number }}.preview.app"
+            echo "preview_url=$URL" >> "$GITHUB_OUTPUT"
+    ```
+
+    **Key insight:** Outputting dynamic environment URLs provides instant one-click access for reviewers to test live preview environments.
+  key_points:
+  - "url: records the destination web address for the deployment"
+  - "Can be hardcoded (https://example.com) or dynamic (${{ steps... }})"
+  - "Renders a clickable 'View deployment' button on GitHub commit pages"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Verify Deployment Target Environment Format"
-    instructions: |
-      **What we're doing:** Inspect the target environment string format.
+- id: "cmd-01"
+  title: "Verify Deployment Target Environment Format"
+  instructions: |
+    **What we're doing:** Inspect the target environment string format.
 
-      **Why this matters:** In workflows, environments are passed to deployment CLIs.
+    **Why this matters:** In workflows, environments are passed to deployment CLIs.
 
-      **The command pattern:**
-      ```
-      echo "Target: production"
-      ```
+    **The command pattern:**
+    ```
+    echo "Target: production"
+    ```
 
-      Run this command:
-    command_hint: "echo 'Target: production'"
-    validation:
-      type: "command_output"
-      command: "echo 'Target: production'"
-      expected_contains: "production"
-    points: 10
+    Run this command:
+  command_hint: "echo 'Target: production'"
+  validation:
+    type: "command_output"
+    command: "echo 'Target: production'"
+    expected_contains: "production"
+  points: 10
 
 scenarios:
-  - id: "attach-production-environment"
-    title: "Attach Environment Gate to Deploy Job"
-    description: |
-      The deployment job is currently running without any governance gate.
-      Edit `.github/workflows/ci.yml` and add `environment: production` directly under the `deploy` job header.
-    manifest: |
-      name: Production CD
-      on:
-        push:
-          branches: [main]
-      jobs:
-        deploy:
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Deploying to production..."
-    hints:
-      - "Add 'environment: production' indented directly under 'deploy:'."
-      - "Keep 'runs-on:' indented at the same level."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "attach-production-environment"
+  title: "Attach Environment Gate to Deploy Job"
+  description: |
+    The deployment job is currently running without any governance gate.
+    Edit `.github/workflows/ci.yml` and add `environment: production` directly under the `deploy` job header.
+  manifest: |
+    name: Production CD
+    on:
+      push:
+        branches: [main]
+    jobs:
+      deploy:
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Deploying to production..."
+  hints:
+  - "Add 'environment: production' indented directly under 'deploy:'."
+  - "Keep 'runs-on:' indented at the same level."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.deploy.environment.name
+      equals: production
+      message: 'Deploy job must reference environment: name: production.'
+  points: 25
 
-  - id: "add-dynamic-environment-url"
-    title: "Add Dynamic Deployment URL"
-    description: |
-      Update `.github/workflows/ci.yml` to specify the environment with both `name: staging` and `url: ${{ steps.deploy.outputs.site_url }}`.
-    manifest: |
-      name: Staging Rollout
-      on: [push]
-      jobs:
-        deploy:
-          runs-on: ubuntu-latest
-          environment: staging
-          steps:
-            - id: deploy
-              run: echo "site_url=https://staging.app.io" >> "$GITHUB_OUTPUT"
-    hints:
-      - "Expand 'environment: staging' into an object with 'name: staging' and 'url:'."
-      - "Set 'url: ${{ steps.deploy.outputs.site_url }}'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "add-dynamic-environment-url"
+  title: "Add Dynamic Deployment URL"
+  description: |
+    Update `.github/workflows/ci.yml` to specify the environment with both `name: staging` and `url: ${{ steps.deploy.outputs.site_url }}`.
+  manifest: |
+    name: Staging Rollout
+    on: [push]
+    jobs:
+      deploy:
+        runs-on: ubuntu-latest
+        environment: staging
+        steps:
+          - id: deploy
+            run: echo "site_url=https://staging.app.io" >> "$GITHUB_OUTPUT"
+  hints:
+  - "Expand 'environment: staging' into an object with 'name: staging' and 'url:'."
+  - "Set 'url: ${{ steps.deploy.outputs.site_url }}'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.deploy.environment.url
+      exists: true
+      message: Environment must specify a dynamic url.
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "Where are environment protection rules (such as required reviewers) configured?"
-      options:
-        - "In GitHub repository Settings > Environments"
-        - "Inside .github/workflows/ci.yml"
-        - "Inside the git commit message"
-        - "In pyproject.toml"
-      correct: "In GitHub repository Settings > Environments"
-      explanation: "Protection rules are repository admin settings, ensuring developers cannot bypass approval rules by modifying workflow YAML."
-      points: 10
+  - type: "multiple_choice"
+    question: "Where are environment protection rules (such as required reviewers)
+      configured?"
+    options:
+    - "In GitHub repository Settings > Environments"
+    - "Inside .github/workflows/ci.yml"
+    - "Inside the git commit message"
+    - "In pyproject.toml"
+    correct: "In GitHub repository Settings > Environments"
+    explanation: "Protection rules are repository admin settings, ensuring developers
+      cannot bypass approval rules by modifying workflow YAML."
+    points: 10
 
-    - type: "true_false"
-      question: "When a workflow enters an environment with required reviewers, it pauses until an approver grants access."
-      correct: true
-      explanation: "GitHub Actions holds the job in a waiting state for up to 30 days awaiting required reviewer approval."
-      points: 10
+  - type: "true_false"
+    question: "When a workflow enters an environment with required reviewers, it pauses
+      until an approver grants access."
+    correct: true
+    explanation: "GitHub Actions holds the job in a waiting state for up to 30 days
+      awaiting required reviewer approval."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "What is the purpose of a wait timer in environment protection rules?"
-      options:
-        - "Enforces a mandatory delay before the job begins execution"
-        - "Times out the job if it takes too long to run"
-        - "Delays GitHub webhook notifications"
-        - "Waits for git checkout to finish"
-      correct: "Enforces a mandatory delay before the job begins execution"
-      explanation: "Wait timers establish a cooling-off window or observation period before deployments can proceed."
-      points: 10
+  - type: "multiple_choice"
+    question: "What is the purpose of a wait timer in environment protection rules?"
+    options:
+    - "Enforces a mandatory delay before the job begins execution"
+    - "Times out the job if it takes too long to run"
+    - "Delays GitHub webhook notifications"
+    - "Waits for git checkout to finish"
+    correct: "Enforces a mandatory delay before the job begins execution"
+    explanation: "Wait timers establish a cooling-off window or observation period
+      before deployments can proceed."
+    points: 10
+  - id: q-fill-environment-name
+    type: fill_yaml
+    question: Complete the job setting that binds deployment protection rules 
+      and manual approvals to a job.
+    yaml_template: "jobs:\n  deploy:\n    runs-on: ubuntu-latest\n    __________:
+      production\n"
+    expected: environment
+    explanation: The 'environment:' keyword connects the job to deployment 
+      protection rules and environments.
+    points: 10

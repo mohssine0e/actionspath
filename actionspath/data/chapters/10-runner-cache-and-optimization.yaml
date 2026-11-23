@@ -1,207 +1,233 @@
 chapter:
   number: 10
   title: "Runner Cache & Optimization"
-  description: "Accelerate pipeline speeds with actions/cache, dependency key hashing, restore-keys fallback, and cache scoping rules."
+  description: "Accelerate pipeline speeds with actions/cache, dependency key hashing,
+    restore-keys fallback, and cache scoping rules."
 
 concepts:
-  - title: "Why Cache? The Tool Shed Analogy"
-    content: |
-      Downloading and compiling dependencies (like `node_modules`, pip wheels, or Cargo crates) on every commit wastes minutes of CI time and burns bandwidth.
+- title: "Why Cache? The Tool Shed Analogy"
+  content: |
+    Downloading and compiling dependencies (like `node_modules`, pip wheels, or Cargo crates) on every commit wastes minutes of CI time and burns bandwidth.
 
-      **The Tool Shed Analogy**
+    **The Tool Shed Analogy**
 
-      If you build furniture every day, you don't order a new set of screwdrivers and sandpaper online every morning and wait for the delivery truck. You store them in your workshop tool shed and only order replacements when something is missing.
+    If you build furniture every day, you don't order a new set of screwdrivers and sandpaper online every morning and wait for the delivery truck. You store them in your workshop tool shed and only order replacements when something is missing.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │ WORKFLOW STEP: actions/cache@v4                        │
-      │                                                        │
-      │  Step 1: Check cache using key:                        │
-      │          "Linux-npm-a1b2c3d4..."                       │
-      │                                                        │
-      │   ┌───────────────┐           ┌────────────────────┐   │
-      │   │   CACHE HIT   │           │     CACHE MISS     │   │
-      │   │ Restored: 3s  │           │ Fallback to: 45s   │   │
-      │   │ Skip install! │           │ Run 'npm install'  │   │
-      │   └───────────────┘           └────────────────────┘   │
-      │                                                        │
-      │  End of Job: Automatically saves new cache if missed   │
-      └────────────────────────────────────────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │ WORKFLOW STEP: actions/cache@v4                        │
+    │                                                        │
+    │  Step 1: Check cache using key:                        │
+    │          "Linux-npm-a1b2c3d4..."                       │
+    │                                                        │
+    │   ┌───────────────┐           ┌────────────────────┐   │
+    │   │   CACHE HIT   │           │     CACHE MISS     │   │
+    │   │ Restored: 3s  │           │ Fallback to: 45s   │   │
+    │   │ Skip install! │           │ Run 'npm install'  │   │
+    │   └───────────────┘           └────────────────────┘   │
+    │                                                        │
+    │  End of Job: Automatically saves new cache if missed   │
+    └────────────────────────────────────────────────────────┘
+    ```
 
-      **Cache Scoping:**
-      - Caches are scoped by branch. The default branch (`main`) cache is accessible to all feature branches.
-      - Feature branches cannot corrupt the default branch's cache.
-      - GitHub retains unused caches for 7 days up to a 10 GB limit per repository.
+    **Cache Scoping:**
+    - Caches are scoped by branch. The default branch (`main`) cache is accessible to all feature branches.
+    - Feature branches cannot corrupt the default branch's cache.
+    - GitHub retains unused caches for 7 days up to a 10 GB limit per repository.
 
-      **Key insight:** Caching preserves dependency folders between runs, transforming multi-minute installations into multi-second restores.
-    key_points:
-      - "Caching stores dependencies and build outputs across workflow runs"
-      - "Caches are isolated by branch, but child branches inherit from default branch"
-      - "GitHub retains active caches for 7 days up to a 10 GB repository limit"
+    **Key insight:** Caching preserves dependency folders between runs, transforming multi-minute installations into multi-second restores.
+  key_points:
+  - "Caching stores dependencies and build outputs across workflow runs"
+  - "Caches are isolated by branch, but child branches inherit from default branch"
+  - "GitHub retains active caches for 7 days up to a 10 GB repository limit"
 
-  - title: "Cache Keys & `hashFiles()`"
-    content: |
-      A cache key must change whenever dependencies change. If you edit `package.json`, the cache key must change so fresh packages are installed and cached.
+- title: "Cache Keys & `hashFiles()`"
+  content: |
+    A cache key must change whenever dependencies change. If you edit `package.json`, the cache key must change so fresh packages are installed and cached.
 
-      **The Deterministic Key Pattern:**
-      Combine the operating system name with the cryptographic hash of your lockfiles using `hashFiles()`:
+    **The Deterministic Key Pattern:**
+    Combine the operating system name with the cryptographic hash of your lockfiles using `hashFiles()`:
 
-      ```yaml
-      - name: Cache Node Modules
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-      ```
+    ```yaml
+    - name: Cache Node Modules
+      uses: actions/cache@v4
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+    ```
 
-      **The `restore-keys` Fallback:**
-      If `package-lock.json` changes slightly, the exact hash key misses. However, `restore-keys` allows a **prefix match** (`${{ runner.os }}-node-`).
-      The runner restores 98% of the packages from yesterday's cache, and the installer only has to download the 1 new package!
+    **The `restore-keys` Fallback:**
+    If `package-lock.json` changes slightly, the exact hash key misses. However, `restore-keys` allows a **prefix match** (`${{ runner.os }}-node-`).
+    The runner restores 98% of the packages from yesterday's cache, and the installer only has to download the 1 new package!
 
-      **Key insight:** `key` seeks an exact match; `restore-keys` provides progressive fallback prefixes to save bandwidth on cache misses.
-    key_points:
-      - "hashFiles('path/to/lockfile') generates a unique SHA-256 hash"
-      - "Include runner.os in keys to prevent cross-OS binary corruption"
-      - "restore-keys specifies ordered prefix fallbacks on cache misses"
+    **Key insight:** `key` seeks an exact match; `restore-keys` provides progressive fallback prefixes to save bandwidth on cache misses.
+  key_points:
+  - "hashFiles('path/to/lockfile') generates a unique SHA-256 hash"
+  - "Include runner.os in keys to prevent cross-OS binary corruption"
+  - "restore-keys specifies ordered prefix fallbacks on cache misses"
 
-  - title: "Built-In Setup Action Caching"
-    content: |
-      Most official language setup actions include streamlined built-in caching that replaces verbose `actions/cache` boilerplate.
+- title: "Built-In Setup Action Caching"
+  content: |
+    Most official language setup actions include streamlined built-in caching that replaces verbose `actions/cache` boilerplate.
 
-      **Built-In Examples:**
-      ```yaml
-      # Node.js with built-in npm caching
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
+    **Built-In Examples:**
+    ```yaml
+    # Node.js with built-in npm caching
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
 
-      # Python with built-in pip caching
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
+    # Python with built-in pip caching
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
 
-      # Go with automatic module caching
-      - uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache: true
-      ```
+    # Go with automatic module caching
+    - uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+        cache: true
+    ```
 
-      **When to use `actions/cache` manually:**
-      - Caching compiler artifacts (e.g. `ccache`, `target/` in Rust).
-      - Caching large test data sets or machine learning model weights.
-      - Unsupported or custom internal package managers.
+    **When to use `actions/cache` manually:**
+    - Caching compiler artifacts (e.g. `ccache`, `target/` in Rust).
+    - Caching large test data sets or machine learning model weights.
+    - Unsupported or custom internal package managers.
 
-      **Key insight:** Prefer the `cache:` option in `setup-*` actions for standard languages; reserve `actions/cache@v4` for build artifacts and custom directories.
-    key_points:
-      - "setup-node, setup-python, and setup-go provide built-in cache: flags"
-      - "Built-in caching automatically handles lockfile hashing and path resolution"
-      - "Use actions/cache@v4 for build artifacts, ccache, or custom cache folders"
+    **Key insight:** Prefer the `cache:` option in `setup-*` actions for standard languages; reserve `actions/cache@v4` for build artifacts and custom directories.
+  key_points:
+  - "setup-node, setup-python, and setup-go provide built-in cache: flags"
+  - "Built-in caching automatically handles lockfile hashing and path resolution"
+  - "Use actions/cache@v4 for build artifacts, ccache, or custom cache folders"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Calculate File Hash for Cache Key"
-    instructions: |
-      **What we're doing:** Generate a SHA-256 hash of a configuration file.
+- id: "cmd-01"
+  title: "Calculate File Hash for Cache Key"
+  instructions: |
+    **What we're doing:** Generate a SHA-256 hash of a configuration file.
 
-      **Why this matters:** In workflows, `hashFiles('pyproject.toml')` calculates this exact checksum to invalidate the cache when dependencies change.
+    **Why this matters:** In workflows, `hashFiles('pyproject.toml')` calculates this exact checksum to invalidate the cache when dependencies change.
 
-      **The command pattern:**
-      ```
-      sha256sum pyproject.toml | cut -d ' ' -f 1
-      ```
+    **The command pattern:**
+    ```
+    sha256sum pyproject.toml | cut -d ' ' -f 1
+    ```
 
-      Run this command:
-    command_hint: "sha256sum pyproject.toml | cut -d ' ' -f 1"
-    validation:
-      type: "command_output"
-      command: "sha256sum pyproject.toml | cut -d ' ' -f 1"
-      expected_contains: ""
-    points: 10
+    Run this command:
+  command_hint: "sha256sum pyproject.toml | cut -d ' ' -f 1"
+  validation:
+    type: "command_output"
+    command: "sha256sum pyproject.toml | cut -d ' ' -f 1"
+    expected_contains: ""
+  points: 10
 
 scenarios:
-  - id: "fix-cache-key-syntax"
-    title: "Fix Invalid Cache Key Syntax"
-    description: |
-      A developer forgot the quotes inside `hashFiles()`: `key: ${{ runner.os }}-node-${{ hashFiles(package-lock.json) }}`.
-      Edit `.github/workflows/ci.yml` and wrap the path in single quotes: `hashFiles('package-lock.json')`.
-    manifest: |
-      name: Optimized Build
-      on: [push]
-      jobs:
-        build:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - uses: actions/cache@v4
-              with:
-                path: ~/.npm
-                key: ${{ runner.os }}-node-${{ hashFiles(package-lock.json) }}
-            - run: npm install
-    hints:
-      - "hashFiles() takes a string path argument enclosed in single quotes."
-      - "Change 'hashFiles(package-lock.json)' to 'hashFiles(\\'package-lock.json\\')'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-cache-key-syntax"
+  title: "Fix Invalid Cache Key Syntax"
+  description: |
+    A developer forgot the quotes inside `hashFiles()`: `key: ${{ runner.os }}-node-${{ hashFiles(package-lock.json) }}`.
+    Edit `.github/workflows/ci.yml` and wrap the path in single quotes: `hashFiles('package-lock.json')`.
+  manifest: |
+    name: Optimized Build
+    on: [push]
+    jobs:
+      build:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/cache@v4
+            with:
+              path: ~/.npm
+              key: ${{ runner.os }}-node-${{ hashFiles(package-lock.json) }}
+          - run: npm install
+  hints:
+  - "hashFiles() takes a string path argument enclosed in single quotes."
+  - "Change 'hashFiles(package-lock.json)' to 'hashFiles(\\'package-lock.json\\')'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.build.steps.1.with.key
+      contains: hashFiles
+      message: Cache key must use hashFiles('**/package-lock.json').
+  points: 25
 
-  - id: "enable-setup-python-cache"
-    title: "Enable Built-In Python Cache"
-    description: |
-      The workflow uses `actions/setup-python@v5`, but dependencies are re-downloaded on every run.
-      Edit `.github/workflows/ci.yml` to add `cache: 'pip'` under the `with:` section of `actions/setup-python@v5`.
-    manifest: |
-      name: Python Suite
-      on: [push]
-      jobs:
-        lint:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-python@v5
-              with:
-                python-version: "3.12"
-            - run: pip install -r requirements.txt
-    hints:
-      - "Add 'cache: pip' under the 'with:' block of the setup-python step."
-      - "Indent 'cache: pip' at the same level as 'python-version'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "enable-setup-python-cache"
+  title: "Enable Built-In Python Cache"
+  description: |
+    The workflow uses `actions/setup-python@v5`, but dependencies are re-downloaded on every run.
+    Edit `.github/workflows/ci.yml` to add `cache: 'pip'` under the `with:` section of `actions/setup-python@v5`.
+  manifest: |
+    name: Python Suite
+    on: [push]
+    jobs:
+      lint:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-python@v5
+            with:
+              python-version: "3.12"
+          - run: pip install -r requirements.txt
+  hints:
+  - "Add 'cache: pip' under the 'with:' block of the setup-python step."
+  - "Indent 'cache: pip' at the same level as 'python-version'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.test.steps.1.with.cache
+      equals: pip
+      message: 'setup-python must declare cache: pip.'
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "What function generates a cryptographic checksum of dependency lockfiles for cache keys?"
-      options:
-        - "hashFiles()"
-        - "sha256()"
-        - "md5()"
-        - "checkFiles()"
-      correct: "hashFiles()"
-      explanation: "hashFiles() is the built-in Actions expression function that takes glob patterns and returns a SHA-256 hash."
-      points: 10
+  - type: "multiple_choice"
+    question: "What function generates a cryptographic checksum of dependency lockfiles
+      for cache keys?"
+    options:
+    - "hashFiles()"
+    - "sha256()"
+    - "md5()"
+    - "checkFiles()"
+    correct: "hashFiles()"
+    explanation: "hashFiles() is the built-in Actions expression function that takes
+      glob patterns and returns a SHA-256 hash."
+    points: 10
 
-    - type: "true_false"
-      question: "Feature branches have access to caches generated on the default (main) branch."
-      correct: true
-      explanation: "GitHub Actions cache scoping permits any branch to read caches created on the default branch."
-      points: 10
+  - type: "true_false"
+    question: "Feature branches have access to caches generated on the default (main)
+      branch."
+    correct: true
+    explanation: "GitHub Actions cache scoping permits any branch to read caches created
+      on the default branch."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "What is the purpose of 'restore-keys' in actions/cache?"
-      options:
-        - "Provides prefix fallback keys to restore partial caches when the exact key misses"
-        - "Encrypts the cache archive with a private key"
-        - "Lists the files that should be deleted before restoring"
-        - "Specifies alternate download mirrors"
-      correct: "Provides prefix fallback keys to restore partial caches when the exact key misses"
-      explanation: "restore-keys allows the runner to search for prefix matches so builds can restore older packages if the exact lockfile hash misses."
-      points: 10
+  - type: "multiple_choice"
+    question: "What is the purpose of 'restore-keys' in actions/cache?"
+    options:
+    - "Provides prefix fallback keys to restore partial caches when the exact key
+      misses"
+    - "Encrypts the cache archive with a private key"
+    - "Lists the files that should be deleted before restoring"
+    - "Specifies alternate download mirrors"
+    correct: "Provides prefix fallback keys to restore partial caches when the exact
+      key misses"
+    explanation: "restore-keys allows the runner to search for prefix matches so builds
+      can restore older packages if the exact lockfile hash misses."
+    points: 10
+  - id: q-fill-hashfiles
+    type: fill_yaml
+    question: Complete the expression function used to generate a deterministic 
+      cache key from a lockfile.
+    yaml_template: "key: npm-${{ runner.os }}-${{ __________('**/package-lock.json')
+      }}\n"
+    expected: hashFiles
+    explanation: The hashFiles() function calculates a SHA-256 hash of matched 
+      files to invalidate caches when dependencies change.
+    points: 10

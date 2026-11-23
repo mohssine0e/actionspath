@@ -1,200 +1,227 @@
 chapter:
   number: 15
   title: "Concurrency & Pipeline Queue Controls"
-  description: "Prevent race conditions, redundant CI runs, and out-of-order deployments using concurrency groups and cancel-in-progress."
+  description: "Prevent race conditions, redundant CI runs, and out-of-order deployments
+    using concurrency groups and cancel-in-progress."
 
 concepts:
-  - title: "The Deployment Race Condition"
-    content: |
-      When multiple developers push commits in rapid succession, jobs run concurrently by default. Without concurrency limits, disaster can strike.
+- title: "The Deployment Race Condition"
+  content: |
+    When multiple developers push commits in rapid succession, jobs run concurrently by default. Without concurrency limits, disaster can strike.
 
-      **The Single Printing Press Analogy**
+    **The Single Printing Press Analogy**
 
-      If two reporters submit breaking news stories minutes apart to a newspaper with a single printing press:
-      - Story 1 (older) takes 10 minutes to print.
-      - Story 2 (newer) takes 4 minutes to print.
-      If both run simultaneously, Story 2 finishes first, but 6 minutes later, Story 1 finishes and replaces the morning paper with yesterday's outdated news!
+    If two reporters submit breaking news stories minutes apart to a newspaper with a single printing press:
+    - Story 1 (older) takes 10 minutes to print.
+    - Story 2 (newer) takes 4 minutes to print.
+    If both run simultaneously, Story 2 finishes first, but 6 minutes later, Story 1 finishes and replaces the morning paper with yesterday's outdated news!
 
-      ```
-      WITHOUT CONCURRENCY CONTROL:
-      Commit A (v1) ──► [=== Deploying v1 (5m) =================►] OVERWRITES v2!
-      Commit B (v2) ──►    [== Deploying v2 (2m) ==►] (Finished first!)
+    ```
+    WITHOUT CONCURRENCY CONTROL:
+    Commit A (v1) ──► [=== Deploying v1 (5m) =================►] OVERWRITES v2!
+    Commit B (v2) ──►    [== Deploying v2 (2m) ==►] (Finished first!)
 
-      WITH CONCURRENCY (cancel-in-progress: true for PRs):
-      Commit A (v1) ──► [== CANCELED (Saved 3m runner time) ==X]
-      Commit B (v2) ──►    [== Deploying v2 (2m) ==►] (Wins!)
-      ```
+    WITH CONCURRENCY (cancel-in-progress: true for PRs):
+    Commit A (v1) ──► [== CANCELED (Saved 3m runner time) ==X]
+    Commit B (v2) ──►    [== Deploying v2 (2m) ==►] (Wins!)
+    ```
 
-      **Key insight:** Concurrency groups serialize or cancel overlapping jobs that target the same environment or Git branch.
-    key_points:
-      - "Uncontrolled parallel runs can result in outdated builds overwriting newer ones"
-      - "Concurrency groups provide mutual exclusion for jobs or workflows"
-      - "Saves runner minutes by aborting obsolete runs when fresh commits arrive"
+    **Key insight:** Concurrency groups serialize or cancel overlapping jobs that target the same environment or Git branch.
+  key_points:
+  - "Uncontrolled parallel runs can result in outdated builds overwriting newer ones"
+  - "Concurrency groups provide mutual exclusion for jobs or workflows"
+  - "Saves runner minutes by aborting obsolete runs when fresh commits arrive"
 
-  - title: "Concurrency Groups & `cancel-in-progress`"
-    content: |
-      A concurrency group defines a shared lock identifier. If a job starts while another job in the same group is active, GitHub holds or cancels it based on `cancel-in-progress`.
+- title: "Concurrency Groups & `cancel-in-progress`"
+  content: |
+    A concurrency group defines a shared lock identifier. If a job starts while another job in the same group is active, GitHub holds or cancels it based on `cancel-in-progress`.
 
-      **Standard Pull Request Pattern (Aggressive Cancellation):**
-      For test and lint workflows on pull requests, you only care about the latest commit. Cancel stale runs immediately:
+    **Standard Pull Request Pattern (Aggressive Cancellation):**
+    For test and lint workflows on pull requests, you only care about the latest commit. Cancel stale runs immediately:
 
-      ```yaml
-      concurrency:
-        group: ${{ github.workflow }}-${{ github.ref }}
-        cancel-in-progress: true
-      ```
+    ```yaml
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    ```
 
-      **Standard Production Deploy Pattern (FIFO Queue):**
-      For production deployments, you never cancel an active rollout midway through. Instead, queue incoming runs sequentially:
+    **Standard Production Deploy Pattern (FIFO Queue):**
+    For production deployments, you never cancel an active rollout midway through. Instead, queue incoming runs sequentially:
 
-      ```yaml
-      concurrency:
-        group: production-deployment
-        cancel-in-progress: false   # Queues the new run until current finishes
-      ```
+    ```yaml
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false   # Queues the new run until current finishes
+    ```
 
-      **Key insight:** Use `cancel-in-progress: true` for ephemeral test runs on PRs, and `cancel-in-progress: false` for sensitive stateful deployments.
-    key_points:
-      - "group: sets the mutual exclusion key (e.g. ${{ github.workflow }}-${{ github.ref }})"
-      - "cancel-in-progress: true aborts any currently running instance in that group"
-      - "cancel-in-progress: false queues pending runs sequentially"
+    **Key insight:** Use `cancel-in-progress: true` for ephemeral test runs on PRs, and `cancel-in-progress: false` for sensitive stateful deployments.
+  key_points:
+  - "group: sets the mutual exclusion key (e.g. ${{ github.workflow }}-${{ github.ref
+    }})"
+  - "cancel-in-progress: true aborts any currently running instance in that group"
+  - "cancel-in-progress: false queues pending runs sequentially"
 
-  - title: "Workflow-Level vs Job-Level Concurrency"
-    content: |
-      You can define concurrency at either the top level of the workflow or inside individual jobs.
+- title: "Workflow-Level vs Job-Level Concurrency"
+  content: |
+    You can define concurrency at either the top level of the workflow or inside individual jobs.
 
-      **Workflow-Level Concurrency:**
-      Cancels or locks the entire workflow run:
-      ```yaml
-      name: CI
-      on: [pull_request]
-      concurrency:
-        group: ci-${{ github.head_ref || github.run_id }}
-        cancel-in-progress: true
-      ```
+    **Workflow-Level Concurrency:**
+    Cancels or locks the entire workflow run:
+    ```yaml
+    name: CI
+    on: [pull_request]
+    concurrency:
+      group: ci-${{ github.head_ref || github.run_id }}
+      cancel-in-progress: true
+    ```
 
-      **Job-Level Concurrency:**
-      Allows linting and unit testing to run freely in parallel, but serializes only the sensitive deployment job:
-      ```yaml
-      jobs:
-        test:
-          runs-on: ubuntu-latest
-          steps:
-            - run: npm test
+    **Job-Level Concurrency:**
+    Allows linting and unit testing to run freely in parallel, but serializes only the sensitive deployment job:
+    ```yaml
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+          - run: npm test
 
-        deploy:
-          needs: test
-          concurrency:
-            group: deploy-${{ github.ref_name }}
-            cancel-in-progress: false
-          runs-on: ubuntu-latest
-          steps:
-            - run: ./deploy.sh
-      ```
+      deploy:
+        needs: test
+        concurrency:
+          group: deploy-${{ github.ref_name }}
+          cancel-in-progress: false
+        runs-on: ubuntu-latest
+        steps:
+          - run: ./deploy.sh
+    ```
 
-      **Key insight:** Scoping concurrency to specific jobs lets test suites run at maximum concurrency while safely locking deployments.
-    key_points:
-      - "Top-level concurrency applies mutual exclusion to the entire workflow"
-      - "Job-level concurrency serializes only the critical job (e.g. deploy)"
-      - "Use ${{ github.head_ref || github.run_id }} to isolate PRs from main branch runs"
+    **Key insight:** Scoping concurrency to specific jobs lets test suites run at maximum concurrency while safely locking deployments.
+  key_points:
+  - "Top-level concurrency applies mutual exclusion to the entire workflow"
+  - "Job-level concurrency serializes only the critical job (e.g. deploy)"
+  - "Use ${{ github.head_ref || github.run_id }} to isolate PRs from main branch runs"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect Current Git Reference"
-    instructions: |
-      **What we're doing:** Inspect the current Git reference name.
+- id: "cmd-01"
+  title: "Inspect Current Git Reference"
+  instructions: |
+    **What we're doing:** Inspect the current Git reference name.
 
-      **Why this matters:** In concurrency groups, `${{ github.ref }}` or `${{ github.head_ref }}` partitions concurrency by branch.
+    **Why this matters:** In concurrency groups, `${{ github.ref }}` or `${{ github.head_ref }}` partitions concurrency by branch.
 
-      **The command pattern:**
-      ```
-      git symbolic-ref --short HEAD
-      ```
+    **The command pattern:**
+    ```
+    git symbolic-ref --short HEAD
+    ```
 
-      Run this command:
-    command_hint: "git symbolic-ref --short HEAD"
-    validation:
-      type: "command_output"
-      command: "git symbolic-ref --short HEAD"
-      expected_contains: "main"
-    points: 10
+    Run this command:
+  command_hint: "git symbolic-ref --short HEAD"
+  validation:
+    type: "command_output"
+    command: "git symbolic-ref --short HEAD"
+    expected_contains: "main"
+  points: 10
 
 scenarios:
-  - id: "enable-pr-cancel-in-progress"
-    title: "Cancel Outdated Pull Request Builds"
-    description: |
-      The PR test workflow is wasting runner minutes because old runs keep executing after new commits are pushed.
-      Edit `.github/workflows/ci.yml` and add a `concurrency:` block at the root level:
-      ```yaml
-      concurrency:
-        group: ${{ github.workflow }}-${{ github.ref }}
-        cancel-in-progress: true
-      ```
-    manifest: |
-      name: PR Validation
-      on: [pull_request]
-      jobs:
-        test:
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Running full test suite..."
-    hints:
-      - "Add 'concurrency:' at the top level of the workflow alongside 'name:' and 'on:'."
-      - "Set 'group: ${{ github.workflow }}-${{ github.ref }}' and 'cancel-in-progress: true'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "enable-pr-cancel-in-progress"
+  title: "Cancel Outdated Pull Request Builds"
+  description: |
+    The PR test workflow is wasting runner minutes because old runs keep executing after new commits are pushed.
+    Edit `.github/workflows/ci.yml` and add a `concurrency:` block at the root level:
+    ```yaml
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    ```
+  manifest: |
+    name: PR Validation
+    on: [pull_request]
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Running full test suite..."
+  hints:
+  - "Add 'concurrency:' at the top level of the workflow alongside 'name:' and 'on:'."
+  - "Set 'group: ${{ github.workflow }}-${{ github.ref }}' and 'cancel-in-progress:
+    true'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: concurrency.cancel-in-progress
+      equals: true
+      message: 'Concurrency block must set cancel-in-progress: true.'
+  points: 25
 
-  - id: "serialize-production-deploy"
-    title: "Serialize Production Deployments"
-    description: |
-      Deployments are colliding on the production server. Add job-level concurrency to the `deploy` job with:
-      `group: production-deploy` and `cancel-in-progress: false` to ensure deployments queue sequentially.
-    manifest: |
-      name: Delivery
-      on:
-        push:
-          branches: [main]
-      jobs:
-        deploy:
-          runs-on: ubuntu-latest
-          steps:
-            - run: echo "Deploying sequentially..."
-    hints:
-      - "Add 'concurrency:' directly under the 'deploy:' job."
-      - "Set 'group: production-deploy' and 'cancel-in-progress: false'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "serialize-production-deploy"
+  title: "Serialize Production Deployments"
+  description: |
+    Deployments are colliding on the production server. Add job-level concurrency to the `deploy` job with:
+    `group: production-deploy` and `cancel-in-progress: false` to ensure deployments queue sequentially.
+  manifest: |
+    name: Delivery
+    on:
+      push:
+        branches: [main]
+    jobs:
+      deploy:
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Deploying sequentially..."
+  hints:
+  - "Add 'concurrency:' directly under the 'deploy:' job."
+  - "Set 'group: production-deploy' and 'cancel-in-progress: false'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: jobs.deploy.concurrency.group
+      exists: true
+      message: Production deploy job must define concurrency group.
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "What is the primary advantage of setting 'cancel-in-progress: true' on pull request workflows?"
-      options:
-        - "Immediately aborts outdated runs when new commits arrive, saving runner minutes"
-        - "Speeds up unit tests by caching memory"
-        - "Automatically merges the pull request"
-        - "Bypasses required status checks"
-      correct: "Immediately aborts outdated runs when new commits arrive, saving runner minutes"
-      explanation: "cancel-in-progress: true terminates running jobs in that group as soon as a new run begins, freeing up runner capacity."
-      points: 10
+  - type: "multiple_choice"
+    question: "What is the primary advantage of setting 'cancel-in-progress: true'
+      on pull request workflows?"
+    options:
+    - "Immediately aborts outdated runs when new commits arrive, saving runner minutes"
+    - "Speeds up unit tests by caching memory"
+    - "Automatically merges the pull request"
+    - "Bypasses required status checks"
+    correct: "Immediately aborts outdated runs when new commits arrive, saving runner
+      minutes"
+    explanation: "cancel-in-progress: true terminates running jobs in that group as
+      soon as a new run begins, freeing up runner capacity."
+    points: 10
 
-    - type: "true_false"
-      question: "For production deployments, you should usually set 'cancel-in-progress: true'."
-      correct: false
-      explanation: "Canceling an active production deployment midway through can leave infrastructure in a half-deployed, corrupted state."
-      points: 10
+  - type: "true_false"
+    question: "For production deployments, you should usually set 'cancel-in-progress:
+      true'."
+    correct: false
+    explanation: "Canceling an active production deployment midway through can leave
+      infrastructure in a half-deployed, corrupted state."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "Which expression provides the PR branch name in pull_request events, falling back gracefully on pushes?"
-      options:
-        - "${{ github.head_ref || github.ref }}"
-        - "${{ github.branch }}"
-        - "${{ runner.branch }}"
-        - "${{ env.GIT_BRANCH }}"
-      correct: "${{ github.head_ref || github.ref }}"
-      explanation: "github.head_ref contains the source branch in pull_request events, while github.ref provides the ref on push events."
-      points: 10
+  - type: "multiple_choice"
+    question: "Which expression provides the PR branch name in pull_request events,
+      falling back gracefully on pushes?"
+    options:
+    - "${{ github.head_ref || github.ref }}"
+    - "${{ github.branch }}"
+    - "${{ runner.branch }}"
+    - "${{ env.GIT_BRANCH }}"
+    correct: "${{ github.head_ref || github.ref }}"
+    explanation: "github.head_ref contains the source branch in pull_request events,
+      while github.ref provides the ref on push events."
+    points: 10
+  - id: q-fill-cancel-in-progress
+    type: fill_yaml
+    question: Fill in the boolean setting that aborts previously queued builds 
+      when a new commit is pushed to the same branch.
+    yaml_template: "concurrency:\n  group: ${{ github.ref }}\n  __________: true\n"
+    expected: cancel-in-progress
+    explanation: "'cancel-in-progress: true' prevents wasted runner minutes by cancelling
+      superseded pull request builds."
+    points: 10

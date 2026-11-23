@@ -1,190 +1,214 @@
 chapter:
   number: 23
   title: "Custom JavaScript & TypeScript Actions"
-  description: "Author high-performance custom GitHub Actions using Node.js, the @actions/core and @actions/github SDKs, and bundle with ncc."
+  description: "Author high-performance custom GitHub Actions using Node.js, the @actions/core
+    and @actions/github SDKs, and bundle with ncc."
 
 concepts:
-  - title: "Why JavaScript Actions?"
-    content: |
-      While composite actions wrap shell scripts, **JavaScript Actions** execute directly inside the runner's built-in Node.js environment.
+- title: "Why JavaScript Actions?"
+  content: |
+    While composite actions wrap shell scripts, **JavaScript Actions** execute directly inside the runner's built-in Node.js environment.
 
-      **The Native App Analogy**
+    **The Native App Analogy**
 
-      Docker actions require downloading images and booting container runtimes (10–30s startup latency). JavaScript actions run like native smartphone apps pre-installed on the device: they start instantly in under 100 milliseconds and run identically on Linux, macOS, and Windows.
+    Docker actions require downloading images and booting container runtimes (10–30s startup latency). JavaScript actions run like native smartphone apps pre-installed on the device: they start instantly in under 100 milliseconds and run identically on Linux, macOS, and Windows.
 
-      ```
-      ┌────────────────────────────────────────────────────────┐
-      │ ACTION METADATA: action.yml                            │
-      │                                                        │
-      │ name: 'Label Pull Request'                             │
-      │ runs:                                                  │
-      │   using: 'node20'     # Runner's embedded Node runtime │
-      │   main: 'dist/index.js'                                │
-      └────────────────────────────────────────────────────────┘
-      ```
+    ```
+    ┌────────────────────────────────────────────────────────┐
+    │ ACTION METADATA: action.yml                            │
+    │                                                        │
+    │ name: 'Label Pull Request'                             │
+    │ runs:                                                  │
+    │   using: 'node20'     # Runner's embedded Node runtime │
+    │   main: 'dist/index.js'                                │
+    └────────────────────────────────────────────────────────┘
+    ```
 
-      **Key advantages:**
-      - **Zero startup delay:** No container pull or OS virtualization required.
-      - **Cross-platform:** Works out of the box on Linux, Windows, and macOS.
-      - **Rich ecosystem:** Access to the full npm ecosystem and Octokit GitHub API client.
+    **Key advantages:**
+    - **Zero startup delay:** No container pull or OS virtualization required.
+    - **Cross-platform:** Works out of the box on Linux, Windows, and macOS.
+    - **Rich ecosystem:** Access to the full npm ecosystem and Octokit GitHub API client.
 
-      **Key insight:** Always target modern Node versions (`using: 'node20'`); older runtimes (`node12`, `node16`) are deprecated and blocked by GitHub.
-    key_points:
-      - "JavaScript actions execute directly in the runner's embedded Node.js engine"
-      - "Instant startup with zero Docker overhead"
-      - "Cross-platform support across Linux, macOS, and Windows runners"
+    **Key insight:** Always target modern Node versions (`using: 'node20'`); older runtimes (`node12`, `node16`) are deprecated and blocked by GitHub.
+  key_points:
+  - "JavaScript actions execute directly in the runner's embedded Node.js engine"
+  - "Instant startup with zero Docker overhead"
+  - "Cross-platform support across Linux, macOS, and Windows runners"
 
-  - title: "The Actions Toolkit: `@actions/core` & `@actions/github`"
-    content: |
-      GitHub provides official TypeScript/JavaScript SDK packages to interact with workflow runners and the GitHub REST/GraphQL API.
+- title: "The Actions Toolkit: `@actions/core` & `@actions/github`"
+  content: |
+    GitHub provides official TypeScript/JavaScript SDK packages to interact with workflow runners and the GitHub REST/GraphQL API.
 
-      **1. `@actions/core` (Runner Interaction):**
-      ```javascript
-      import * as core from '@actions/core';
+    **1. `@actions/core` (Runner Interaction):**
+    ```javascript
+    import * as core from '@actions/core';
 
-      try {
-        const branchName = core.getInput('branch_name', { required: true });
-        core.info(`Processing branch: ${branchName}`);
+    try {
+      const branchName = core.getInput('branch_name', { required: true });
+      core.info(`Processing branch: ${branchName}`);
 
-        core.setOutput('is_release', branchName.startsWith('release/'));
-      } catch (error) {
-        core.setFailed(error.message); // Marks the action step as failed in red!
-      }
-      ```
+      core.setOutput('is_release', branchName.startsWith('release/'));
+    } catch (error) {
+      core.setFailed(error.message); // Marks the action step as failed in red!
+    }
+    ```
 
-      **2. `@actions/github` (API Interaction):**
-      ```javascript
-      import * as github from '@actions/github';
+    **2. `@actions/github` (API Interaction):**
+    ```javascript
+    import * as github from '@actions/github';
 
-      const token = core.getInput('github-token');
-      const octokit = github.getOctokit(token);
+    const token = core.getInput('github-token');
+    const octokit = github.getOctokit(token);
 
-      // Access context payload (PR number, repo owner, author)
-      const { owner, repo } = github.context.repo;
-      await octokit.rest.issues.addLabels({
-        owner,
-        repo,
-        issue_number: github.context.issue.number,
-        labels: ['automated-pr']
-      });
-      ```
+    // Access context payload (PR number, repo owner, author)
+    const { owner, repo } = github.context.repo;
+    await octokit.rest.issues.addLabels({
+      owner,
+      repo,
+      issue_number: github.context.issue.number,
+      labels: ['automated-pr']
+    });
+    ```
 
-      **Key insight:** Always use `core.setFailed(message)` in catch blocks so failures mark the step as failed with clean diagnostic messages.
-    key_points:
-      - "Use @actions/core for inputs, outputs, logging, and failure status"
-      - "Use @actions/github to interact with the GitHub REST and GraphQL APIs"
-      - "Always catch exceptions and call core.setFailed(error.message)"
+    **Key insight:** Always use `core.setFailed(message)` in catch blocks so failures mark the step as failed with clean diagnostic messages.
+  key_points:
+  - "Use @actions/core for inputs, outputs, logging, and failure status"
+  - "Use @actions/github to interact with the GitHub REST and GraphQL APIs"
+  - "Always catch exceptions and call core.setFailed(error.message)"
 
-  - title: "Bundling Standalone Artifacts with `@vercel/ncc`"
-    content: |
-      Workflows cannot run `npm install` on your custom action at runtime—it would be too slow and fragile. The action must be distributed with all its dependencies pre-bundled.
+- title: "Bundling Standalone Artifacts with `@vercel/ncc`"
+  content: |
+    Workflows cannot run `npm install` on your custom action at runtime—it would be too slow and fragile. The action must be distributed with all its dependencies pre-bundled.
 
-      **The `@vercel/ncc` Compiler:**
-      NCC compiles your TypeScript/JavaScript source code and all referenced `node_modules` into a single standalone JavaScript file (`dist/index.js`):
+    **The `@vercel/ncc` Compiler:**
+    NCC compiles your TypeScript/JavaScript source code and all referenced `node_modules` into a single standalone JavaScript file (`dist/index.js`):
 
-      ```bash
-      # Compile source and all npm packages into dist/index.js
-      npx @vercel/ncc build src/index.ts -o dist --minify
-      ```
+    ```bash
+    # Compile source and all npm packages into dist/index.js
+    npx @vercel/ncc build src/index.ts -o dist --minify
+    ```
 
-      Your repository commits `action.yml` and `dist/index.js`. The runner executes `dist/index.js` directly with zero external dependency lookups.
+    Your repository commits `action.yml` and `dist/index.js`. The runner executes `dist/index.js` directly with zero external dependency lookups.
 
-      **Key insight:** Bundling with `ncc` guarantees the action has zero runtime dependencies and cannot break if external npm packages are updated or deleted.
-    key_points:
-      - "Custom actions must not require runtime npm install"
-      - "ncc packages TypeScript/JS and all node_modules into a single dist/index.js"
-      - "Commit the bundled dist/index.js alongside action.yml"
+    **Key insight:** Bundling with `ncc` guarantees the action has zero runtime dependencies and cannot break if external npm packages are updated or deleted.
+  key_points:
+  - "Custom actions must not require runtime npm install"
+  - "ncc packages TypeScript/JS and all node_modules into a single dist/index.js"
+  - "Commit the bundled dist/index.js alongside action.yml"
 
 command_practice:
-  - id: "cmd-01"
-    title: "Inspect Node.js Runtime Version"
-    instructions: |
-      **What we're doing:** Inspect the Node.js runtime version available in your environment.
+- id: "cmd-01"
+  title: "Inspect Node.js Runtime Version"
+  instructions: |
+    **What we're doing:** Inspect the Node.js runtime version available in your environment.
 
-      **Why this matters:** GitHub Actions runners execute JavaScript actions using Node 20.
+    **Why this matters:** GitHub Actions runners execute JavaScript actions using Node 20.
 
-      **The command pattern:**
-      ```
-      node -v
-      ```
+    **The command pattern:**
+    ```
+    node -v
+    ```
 
-      Run this command:
-    command_hint: "node -v"
-    validation:
-      type: "command_output"
-      command: "node -v"
-      expected_contains: "v"
-    points: 10
+    Run this command:
+  command_hint: "node -v"
+  validation:
+    type: "command_output"
+    command: "node -v"
+    expected_contains: "v"
+  points: 10
 
 scenarios:
-  - id: "fix-deprecated-node-runtime"
-    title: "Upgrade Deprecated Node Runtime in action.yml"
-    description: |
-      The custom action in `action.yml` specifies deprecated `using: 'node16'`, which triggers runner deprecation warnings.
-      Update `action.yml` to specify `using: 'node20'`.
-    manifest: |
-      name: 'Custom Metric Collector'
-      description: 'Records metrics'
-      runs:
-        using: 'node16'
-        main: 'dist/index.js'
-    hints:
-      - "Change 'using: node16' to 'using: node20'."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "fix-deprecated-node-runtime"
+  title: "Upgrade Deprecated Node Runtime in action.yml"
+  description: |
+    The custom action in `action.yml` specifies deprecated `using: 'node16'`, which triggers runner deprecation warnings.
+    Update `action.yml` to specify `using: 'node20'`.
+  manifest: |
+    name: 'Custom Metric Collector'
+    description: 'Records metrics'
+    runs:
+      using: 'node16'
+      main: 'dist/index.js'
+  hints:
+  - "Change 'using: node16' to 'using: node20'."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: runs.using
+      contains: node20
+      message: 'action.yml must use runs.using: node20.'
+  points: 25
 
-  - id: "add-core-set-failed-handling"
-    title: "Ensure Proper Error Status Handling"
-    description: |
-      A custom action script catches errors but forgets to call `core.setFailed()`, causing failed steps to report green!
-      Edit the action script to ensure `core.setFailed(error.message)` is called inside the `catch` block.
-    manifest: |
-      name: Run Custom Action
-      on: [push]
-      jobs:
-        run-js:
-          runs-on: ubuntu-latest
-          steps:
-            - uses: actions/checkout@v4
-            - uses: actions/setup-node@v4
-              with:
-                node-version: 20
-            - run: node -e "try { throw new Error('Action crash'); } catch (e) { console.error(e.message); process.exit(1); }"
-    hints:
-      - "A process exit with non-zero code or core.setFailed() is required to fail a step."
-    solution_validation:
-      type: "workflow"
-      file: ".github/workflows/ci.yml"
-    points: 25
+- id: "add-core-set-failed-handling"
+  title: "Ensure Proper Error Status Handling"
+  description: |
+    A custom action script catches errors but forgets to call `core.setFailed()`, causing failed steps to report green!
+    Edit the action script to ensure `core.setFailed(error.message)` is called inside the `catch` block.
+  manifest: |
+    name: Run Custom Action
+    on: [push]
+    jobs:
+      run-js:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+          - uses: actions/setup-node@v4
+            with:
+              node-version: 20
+          - run: node -e "try { throw new Error('Action crash'); } catch (e) { console.error(e.message); process.exit(1); }"
+  hints:
+  - "A process exit with non-zero code or core.setFailed() is required to fail a step."
+  solution_validation:
+    type: "workflow"
+    file: ".github/workflows/ci.yml"
+    assertions:
+    - path: runs.using
+      exists: true
+      message: Action definition must declare valid runtime.
+  points: 25
 
 quiz:
   questions:
-    - type: "multiple_choice"
-      question: "Which Node.js execution runtime should modern GitHub Actions target in action.yml?"
-      options:
-        - "node20"
-        - "node16"
-        - "node14"
-        - "node12"
-      correct: "node20"
-      explanation: "GitHub Actions uses Node 20 as the current standard runtime for JavaScript actions."
-      points: 10
+  - type: "multiple_choice"
+    question: "Which Node.js execution runtime should modern GitHub Actions target
+      in action.yml?"
+    options:
+    - "node20"
+    - "node16"
+    - "node14"
+    - "node12"
+    correct: "node20"
+    explanation: "GitHub Actions uses Node 20 as the current standard runtime for
+      JavaScript actions."
+    points: 10
 
-    - type: "true_false"
-      question: "JavaScript actions can run natively on Linux, macOS, and Windows runners without Docker."
-      correct: true
-      explanation: "Node.js is pre-installed on all official hosted runners, allowing JavaScript actions to run natively across all operating systems."
-      points: 10
+  - type: "true_false"
+    question: "JavaScript actions can run natively on Linux, macOS, and Windows runners
+      without Docker."
+    correct: true
+    explanation: "Node.js is pre-installed on all official hosted runners, allowing
+      JavaScript actions to run natively across all operating systems."
+    points: 10
 
-    - type: "multiple_choice"
-      question: "What tool compiles TypeScript and all node_modules into a single standalone dist/index.js?"
-      options:
-        - "@vercel/ncc"
-        - "Webpack only"
-        - "npm bundle"
-        - "actionlint"
-      correct: "@vercel/ncc"
-      explanation: "Vercel's ncc is the standard compiler for packaging GitHub Actions into single standalone files."
-      points: 10
+  - type: "multiple_choice"
+    question: "What tool compiles TypeScript and all node_modules into a single standalone
+      dist/index.js?"
+    options:
+    - "@vercel/ncc"
+    - "Webpack only"
+    - "npm bundle"
+    - "actionlint"
+    correct: "@vercel/ncc"
+    explanation: "Vercel's ncc is the standard compiler for packaging GitHub Actions
+      into single standalone files."
+    points: 10
+  - id: q-fill-node-runtime
+    type: fill_yaml
+    question: What modern Node runtime is specified in action.yml for JavaScript
+      actions?
+    yaml_template: "runs:\n  using: __________\n  main: 'dist/index.js'\n"
+    expected: node20
+    explanation: "'using: node20' executes the compiled JavaScript action with the
+      Node.js 20 runner runtime."
+    points: 10
