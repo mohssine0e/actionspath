@@ -1,15 +1,15 @@
-# kubepath Content Schema
+# ActionsPath Content Schema
 
 This document describes the YAML schema for chapter content files.
 
 ## File Location
 
-Chapter files are stored in `content/chapters/` with the naming convention:
+Chapter files are stored in `actionspath/data/chapters/` with the naming convention:
 ```
 {chapter_number:02d}-{chapter-slug}.yaml
 ```
 
-Example: `01-kubernetes-basics.yaml`
+Example: `00-prerequisites.yaml`, `01-workflow-anatomy.yaml`
 
 ---
 

@@ -642,7 +642,16 @@ def render_main_menu(
         section_label = "Concepts" if section == "concepts" else "Practice"
         options.append(f"[info]\\[c][/info] Continue {title} → {section_label}")
 
-    if chapters:
+    if 0 in chapters:
+        title_0 = chapter_titles.get(0, "Before Your First Workflow")
+        options.append(f"[info]\\[0][/info] [bold green]Start Here:[/bold green] {title_0} [dim](Optional Prerequisites)[/dim]")
+
+    course_chapters = [c for c in chapters if c > 0]
+    if course_chapters:
+        first_chapter = course_chapters[0]
+        first_title = chapter_titles.get(first_chapter, f"Chapter {first_chapter}")
+        options.append(f"[info]\\[s][/info] Start Course ({first_title})")
+    elif chapters:
         first_chapter = chapters[0]
         first_title = chapter_titles.get(first_chapter, f"Chapter {first_chapter}")
         options.append(f"[info]\\[s][/info] Start Learning ({first_title})")

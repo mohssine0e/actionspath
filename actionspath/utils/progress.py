@@ -653,6 +653,9 @@ def get_course_progress(total_chapters: int) -> dict[str, Any]:
     chapters_data = progress.get("chapters", {})
 
     for chapter_key, chapter_data in chapters_data.items():
+        # Exclude Chapter 0 from course completion counts
+        if str(chapter_key) in ("0", "chapter_0"):
+            continue
         if chapter_data.get("section") == "completed":
             completed_chapters += 1
 
@@ -755,6 +758,10 @@ def estimate_course_time_remaining(
     total_remaining = 0
 
     for chapter_num, content_counts in chapters_content.items():
+        # Exclude Chapter 0 from course time remaining estimate
+        if chapter_num == 0 or str(chapter_num) == "0":
+            continue
+
         chapter_key = str(chapter_num)
         chapter_data = chapters_data.get(chapter_key, {})
 

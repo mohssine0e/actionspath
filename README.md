@@ -91,7 +91,10 @@ Launch the interactive terminal interface:
 # Launch interactive main menu
 actionspath
 
-# Or jump straight to Chapter 1
+# Start with optional onboarding prerequisites (Git boundaries, Pull Requests, exit codes, YAML)
+actionspath start 0
+
+# Or jump straight into Chapter 1
 actionspath start 1
 
 # Launch a Module Boss Lab
@@ -108,7 +111,7 @@ actionspath list
 | Command | Description |
 |---------|-------------|
 | `actionspath` | Open interactive menu with progress dashboard |
-| `actionspath start <num>` | Start learning a specific chapter (1-30) |
+| `actionspath start <num>` | Start learning a specific chapter (0 for prerequisites, 1-30 for curriculum) |
 | `actionspath lab <module>` | Launch an end-of-module capstone Boss Lab (1-6) |
 | `actionspath practice <num>` | Jump directly to command practice |
 | `actionspath scenarios <num>` | Jump directly to debugging scenarios |

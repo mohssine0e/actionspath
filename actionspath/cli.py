@@ -305,8 +305,9 @@ def show_main_menu() -> tuple[str, int | None]:
         session = get_active_session()
         chapter_titles = get_chapter_titles()
 
-        # Show course progress bar
-        total_chapters = len(chapters)
+        # Show course progress bar (30 core curriculum chapters)
+        course_chapters = [c for c in chapters if c > 0]
+        total_chapters = len(course_chapters)
         if total_chapters > 0:
             course_progress = get_course_progress(total_chapters)
             all_content = get_all_chapter_content_counts()
@@ -342,8 +343,11 @@ def show_main_menu() -> tuple[str, int | None]:
 
         if user_input == "c" and session:
             return ("continue", session["chapter"])
+        elif user_input == "0" and 0 in chapters:
+            return ("start", 0)
         elif user_input == "s" and chapters:
-            return ("start", chapters[0])
+            start_ch = 1 if 1 in chapters else chapters[0]
+            return ("start", start_ch)
         elif user_input == "b":
             return ("browse", None)
         elif user_input == "h":
@@ -2019,6 +2023,14 @@ def browse_chapters():
             return
 
         console.print("[info]Browse Chapters by Module[/info]\n")
+
+        # Display optional Chapter 0: Start Here
+        if 0 in chapters:
+            section_0 = get_chapter_section(0)
+            status_0 = "[success]✓[/success]" if section_0 == "completed" else "[hint]→[/hint]" if section_0 in ("practice", "scenarios") else " "
+            title_0 = chapter_titles.get(0, "Before Your First Workflow")
+            console.print("[bold cyan]Getting Started (Prerequisites)[/bold cyan]")
+            console.print(f"    {status_0} [info]\\[0][/info] {title_0} [bold green](Start Here - Optional)[/bold green]\n")
 
         # Group chapters by module
         for module in modules:

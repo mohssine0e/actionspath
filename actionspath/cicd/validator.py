@@ -639,8 +639,8 @@ def check_yaml_assertion(
         return False, f"Path '{path}' not found in workflow."
 
     # 2. Exact equality check
-    if "equals" in assertion:
-        expected = assertion["equals"]
+    if "equals" in assertion or "value" in assertion:
+        expected = assertion["equals"] if "equals" in assertion else assertion["value"]
         if val != expected:
             return False, f"At '{path}': expected {expected!r}, got {val!r}."
 

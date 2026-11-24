@@ -1,0 +1,332 @@
+chapter:
+  number: 0
+  title: "Before Your First Workflow"
+  description: "Master Git boundaries, the Pull Request lifecycle, the CI exit code feedback loop, and essential YAML syntax."
+  duration_minutes: 25
+  difficulty: "Beginner"
+
+concepts:
+- title: "Git Boundaries: Local Laptop vs Remote GitHub"
+  content: |
+    Before writing your first GitHub Actions workflow, you must clearly understand the boundary between **your local laptop** and **remote GitHub**.
+
+    Git is a distributed version control tool that runs entirely offline on your computer. When you work locally:
+    - `git add <file>` moves changes to the **staging area** (index).
+    - `git commit -m "msg"` saves a snapshot in your local repository history.
+
+    **The golden boundary rule:**
+    Everything you do with `git add` and `git commit` stays strictly on your laptop. GitHub has no idea your changes exist, and **GitHub Actions cannot run on code that only exists locally**.
+
+    Only when you run `git push origin <branch>` are your commits transferred over the network to GitHub. Once commits reach GitHub, GitHub's event bus triggers your automated workflows.
+
+    **Key mental model:**
+    - `Local (Laptop)`: Private sandbox for editing, testing, and staging. Zero CI execution.
+    - `Remote (GitHub)`: Shared team repository. The automated runtime where GitHub Actions triggers.
+  key_points:
+  - "git add and git commit execute entirely offline on your local computer"
+  - "GitHub Actions cannot see or execute code until it is pushed to GitHub"
+  - "git push is the explicit boundary that transfers local snapshots to the remote repository"
+  - "CI triggers are event listeners reacting to remote repository state changes"
+
+  diagram:
+    type: tree
+    title: The Git Local vs Remote Boundary
+    root:
+      label: 💻 Developer Laptop (Local)
+      badge: offline
+      children:
+      - label: 📝 Working Tree (Editing files)
+        children:
+        - label: 📋 Staging Area (git add)
+          children:
+          - label: 📦 Local Commit (git commit)
+            badge: strictly local
+            children:
+            - label: 🚀 git push origin <branch>
+              badge: network boundary
+              children:
+              - label: 🌐 GitHub Remote Repository
+                badge: cloud
+                children:
+                - label: ⚡ GitHub Event Bus (push / PR)
+                - label: 🤖 GitHub Actions CI Runner
+
+- title: "What is a Pull Request (PR) & Why CI Runs on It?"
+  content: |
+    Many beginners misunderstand the term **Pull Request (PR)**. You are *not* asking to pull code down to your laptop.
+
+    Instead, you are saying to the repository maintainer:
+    *"I created an isolated branch, made my changes, and pushed it to GitHub. I am now **requesting** that you **pull** my branch commits into the main branch."*
+
+    **Why feature branches protect production:**
+    Never push experimental code directly to `main`. Instead:
+    1. Create a feature branch: `git checkout -b feature-login`
+    2. Commit and push: `git push origin feature-login`
+    3. Open a Pull Request on GitHub comparing `feature-login` against `main`.
+
+    **The CI/CD Verification Gate:**
+    When a Pull Request is opened, GitHub immediately fires the `pull_request` event. GitHub Actions boots a clean virtual machine, checks out your PR branch, runs tests and security linters, and reports status directly on the PR page:
+    - **Green Check (✅)**: All automated tests passed. The code is safe to review and merge.
+    - **Red Cross (❌)**: Tests failed or lint errors detected. The merge button is locked to prevent broken code from reaching production.
+  key_points:
+  - "A Pull Request is a formal request to pull commits from a feature branch into main"
+  - "Feature branches isolate work-in-progress code from production stability"
+  - "GitHub triggers pull_request events automatically upon PR creation and new commits"
+  - "CI status checks (Green Check / Red Cross) act as automated quality gates before merging"
+
+  diagram:
+    type: pipeline
+    title: The Pull Request CI Quality Gate
+    stages:
+    - name: 1. Branch & Commit
+      badge: local laptop
+      status: success
+      steps:
+      - label: git checkout -b feature-auth
+      - label: git commit -m "Add auth login"
+    - name: 2. Remote Push
+      badge: network
+      status: success
+      steps:
+      - label: git push origin feature-auth
+    - name: 3. Open Pull Request
+      badge: github.com
+      status: success
+      steps:
+      - label: Request to pull feature-auth into main
+      - label: Generates code diff for team review
+    - name: 4. CI Automated Gate
+      badge: github actions
+      status: success
+      steps:
+      - label: Runner executes test suite
+      - label: Green Check (Pass) or Red Cross (Fail)
+    - name: 5. Merge into Main
+      badge: production
+      status: success
+      steps:
+      - label: Maintainer approves and merges PR
+
+- title: "The CI Feedback Loop: Command Exit Codes"
+  content: |
+    How does a CI runner know whether a build step succeeded or failed? It does not read English words in the terminal output. It checks the numerical **exit code**.
+
+    In every Unix and Linux operating system, every command returns an integer exit code between `0` and `255` when it terminates:
+    - **`0` = Success (Pass)**: The command completed its task with zero errors.
+    - **`1 to 255` = Failure (Fail)**: The command encountered an error, exception, or test failure.
+
+    **The Golden Rule of CI/CD:**
+    GitHub Actions executes steps sequentially. After each step, the runner inspects the exit code:
+    - If exit code is `0`, the runner marks the step green and proceeds to the next step.
+    - If exit code is non-zero (e.g. `1`), the runner immediately halts workflow execution, marks the job red, and notifies you.
+
+    **How tests signal failure:**
+    When test tools like `pytest`, `npm test`, or `cargo test` detect even a single assertion failure, they exit with code `1`. That non-zero exit code is what turns the GitHub Actions check red!
+
+    You can check the exit code of any command in your terminal by printing `$?`:
+    ```bash
+    echo "hello"
+    echo $?   # Outputs: 0 (Success)
+
+    ls /nonexistent_directory
+    echo $?   # Outputs: 2 (Error / Non-zero)
+    ```
+  key_points:
+  - "Every command in a runner returns an integer exit code between 0 and 255"
+  - "Exit code 0 universally signifies Success"
+  - "Any non-zero exit code (1-255) indicates failure and triggers a pipeline halt"
+  - "Test frameworks signal failure by intentionally exiting with a non-zero code"
+  - "The shell variable $? stores the exit code of the most recently executed command"
+
+  diagram:
+    type: sequence
+    title: CI Step Exit Code Evaluation
+    participants:
+    - name: Runner
+      label: GitHub Actions Runner
+    - name: Shell
+      label: Bash Shell Process
+    - name: Command
+      label: Step Command (npm test / pytest)
+    messages:
+    - from: Runner
+      to: Shell
+      label: Execute step command
+    - from: Shell
+      to: Command
+      label: Run binary / test suite
+    - from: Command
+      to: Shell
+      label: Return exit code (0 or 1)
+    - from: Shell
+      to: Runner
+      label: Report exit status
+    - from: Runner
+      to: Runner
+      label: 0 = Next Step | !=0 = Abort & Fail Job
+
+- title: "YAML Basics for Workflow Authors"
+  content: |
+    All GitHub Actions workflows are written in **YAML** (stored in `.github/workflows/`). YAML is designed to be human-readable, but enforces strict formatting rules.
+
+    **Rule 1: Indentation with Spaces Only (Tabs are Forbidden)**
+    YAML uses indentation to define structure and nesting.
+    - **Always use 2 spaces per indentation level.**
+    - **Tabs (`\t`) are strictly illegal in YAML.** If you accidentally press Tab, your workflow will fail with an unparseable syntax error before running any jobs.
+
+    **Rule 2: Key-Value Mappings**
+    A mapping is a dictionary of keys and values. There must always be a space after the colon:
+    ```yaml
+    # Correct (space after colon):
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    # WRONG (syntax error):
+    name:Build and Test
+    ```
+
+    **Rule 3: Lists and Sequences**
+    Lists represent collections of items. Each item begins with a hyphen `-` followed by a space:
+    ```yaml
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run unit test
+        run: pytest
+    ```
+
+    **Rule 4: Nested Structures**
+    Combining mappings and lists creates the workflow tree:
+    ```yaml
+    jobs:
+      test:
+        runs-on: ubuntu-latest
+        steps:
+          - run: echo "Hello Actions"
+    ```
+  key_points:
+  - "YAML enforces structure using whitespace indentation (standard 2 spaces)"
+  - "Hard tab characters (\t) are strictly forbidden in YAML syntax"
+  - "Key-value mappings require a mandatory space following the colon (key: value)"
+  - "Lists are defined using a hyphen and a space (- item)"
+  - "Workflows are structured as nested mappings containing lists of sequential steps"
+
+command_practice:
+- id: "cmd-01"
+  title: "Verify Command Success via Exit Code"
+  instructions: |
+    Test that README.md exists in your workspace and print the shell exit status variable `$?`.
+
+    This is useful to observe how CI runners evaluate exit code 0 to verify command success.
+  command_hint: "test -f README.md && echo 'Exit code: 0'"
+  validation:
+    type: "command_output"
+    command: "test -f README.md && echo 'Exit code: 0'"
+    expected_contains: "Exit code: 0"
+  points: 10
+
+- id: "cmd-02"
+  title: "Inspect Local Git Status"
+  instructions: |
+    Run `git status -s` to view the short status of your local working tree.
+
+    This is useful to verify that local edits are clean before pushing to a remote repository.
+  command_hint: "git status -s"
+  validation:
+    type: "command_output"
+    command: "git status -s"
+    expected_contains: ""
+  points: 10
+
+scenarios:
+- id: "fix-yaml-syntax"
+  title: "Fix YAML Tab Indentation and Key Alignment"
+  description: |
+    A configuration file in `.github/workflows/ci.yml` fails to parse because an editor inserted an illegal hard tab (`\t`) and misaligned nested keys.
+    Open `.github/workflows/ci.yml`, replace the tab before `enabled: true` with 2 spaces, and align `timeout: 30` under `settings:`.
+  manifest: |
+    name: System Configuration
+    version: 1.0
+    settings:
+    	enabled: true
+        timeout: 30
+    notifications:
+      - email
+      - slack
+  hints:
+  - "YAML strictly forbids hard tabs (\\t). Indent settings.enabled using 2 regular space characters."
+  - "Align timeout: 30 with enabled: true so both have exactly 2 leading spaces under settings:."
+  solution_validation:
+    type: "workflow"
+    assertions:
+    - path: "name"
+      equals: "System Configuration"
+      message: "Root key 'name' must equal 'System Configuration'"
+    - path: "settings.enabled"
+      equals: true
+      message: "Key 'settings.enabled' must be true and indented with 2 spaces"
+    - path: "settings.timeout"
+      equals: 30
+      message: "Key 'settings.timeout' must equal 30 and align under settings"
+    - path: "notifications.0"
+      equals: "email"
+      message: "First notification channel must be 'email'"
+    - path: "notifications.1"
+      equals: "slack"
+      message: "Second notification channel must be 'slack'"
+  points: 25
+
+quiz:
+  questions:
+  - id: "q1"
+    type: "multiple_choice"
+    question: "What does an exit code of 0 mean to a GitHub Actions runner when executing a step?"
+    options:
+    - "The command completed successfully (Pass)"
+    - "The command failed with zero errors"
+    - "The command generated zero bytes of terminal output"
+    - "The runner timed out waiting for output"
+    correct: "The command completed successfully (Pass)"
+    explanation: "In Unix systems, exit code 0 universally indicates that the command finished successfully with no errors."
+    points: 10
+
+  - id: "q2"
+    type: "multiple_choice"
+    question: "What does opening a Pull Request (PR) on GitHub actually ask the repository maintainers to do?"
+    options:
+    - "Download code from GitHub to the developer's laptop"
+    - "Pull and merge changes from a feature branch into the target branch"
+    - "Permanently delete an unused remote branch"
+    - "Transfer repository ownership to another user"
+    correct: "Pull and merge changes from a feature branch into the target branch"
+    explanation: "A Pull Request is a formal request asking maintainers to review your feature branch and pull its commits into the main branch."
+    points: 10
+
+  - id: "q3"
+    type: "true_false"
+    question: "Running 'git commit' on your laptop automatically uploads your changes to GitHub and triggers GitHub Actions."
+    correct: false
+    explanation: "git commit only saves a snapshot in your local repository offline. You must run 'git push' to transfer commits to GitHub before workflows can run."
+    points: 10
+
+  - id: "q4"
+    type: "multiple_choice"
+    question: "Which whitespace character is strictly forbidden for indentation in YAML files?"
+    options:
+    - "Tab character (\\t)"
+    - "Two spaces"
+    - "Single space"
+    - "Four spaces"
+    correct: "Tab character (\\t)"
+    explanation: "YAML syntax strictly forbids hard tabs (\\t) for indentation; only regular space characters are allowed."
+    points: 10
+
+  - id: "q5"
+    type: "fill_yaml"
+    question: "Complete the list item syntax to add the 'slack' notification channel to the YAML sequence below:"
+    yaml_template: |
+      notifications:
+        - email
+        ___ _____
+    expected: "- slack"
+    explanation: "YAML list items are denoted by a hyphen followed by a space ('- slack')."
+    points: 10

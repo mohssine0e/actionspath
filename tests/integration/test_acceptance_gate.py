@@ -277,3 +277,137 @@ class TestAcceptanceGatePractices:
                 assert validate_output(result.output, exp), (
                     f"{cf.name} practice {p.get('id')} expected '{exp}' in output:\n{result.output}"
                 )
+
+
+class TestAcceptanceGateChapter0:
+    """Acceptance tests for optional Chapter 0: Before Your First Workflow."""
+
+    def test_chapter_0_starter_scenario_fails_for_intended_reason(self):
+        """The starter manifest must fail evaluation because of illegal tab character / invalid YAML syntax."""
+        from actionspath.content.loader import load_chapter
+        ch0 = load_chapter(0)
+        scenario = ch0["scenarios"][0]
+        broken_manifest = scenario["manifest"]
+        assertions = scenario["solution_validation"]["assertions"]
+
+        # 1. Broken starter with hard tab (\t) must fail YAML syntax evaluation
+        res = validate_scenario_assertions(broken_manifest, assertions)
+        assert not res.success, "Broken starter scenario unexpectedly succeeded!"
+        assert "invalid YAML syntax" in res.message, f"Expected YAML syntax error, got: {res.message}"
+
+    def test_chapter_0_correct_repair_passes(self):
+        """Valid YAML repair with 2-space indentation and aligned keys must pass all assertions."""
+        from actionspath.content.loader import load_chapter
+        ch0 = load_chapter(0)
+        scenario = ch0["scenarios"][0]
+        assertions = scenario["solution_validation"]["assertions"]
+
+        solved_manifest = """name: System Configuration
+version: 1.0
+settings:
+  enabled: true
+  timeout: 30
+notifications:
+  - email
+  - slack
+"""
+        res = validate_scenario_assertions(solved_manifest, assertions)
+        assert res.success, f"Correct repair unexpectedly failed: {res.message}"
+
+    def test_chapter_0_plausible_wrong_repair_fails(self):
+        """Plausible wrong repair (fixing tabs but using wrong value or wrong key) must fail."""
+        from actionspath.content.loader import load_chapter
+        ch0 = load_chapter(0)
+        scenario = ch0["scenarios"][0]
+        assertions = scenario["solution_validation"]["assertions"]
+
+        # Plausible wrong repair: valid YAML syntax, but timeout is 60 instead of 30
+        wrong_manifest = """name: System Configuration
+version: 1.0
+settings:
+  enabled: true
+  timeout: 60
+notifications:
+  - email
+  - slack
+"""
+        res = validate_scenario_assertions(wrong_manifest, assertions)
+        assert not res.success, "Plausible wrong repair unexpectedly passed!"
+        assert "timeout" in res.message or "30" in res.message
+
+    def test_chapter_0_quiz_answers_accepted_correctly(self):
+        """All 5 active recall questions in Chapter 0 must accept the correct answers and reject wrong ones."""
+        from actionspath.content.loader import load_chapter
+        ch0 = load_chapter(0)
+        quiz_data = ch0["quiz"]
+        engine = QuizEngine(chapter=0, quiz_data=quiz_data)
+
+        questions = quiz_data["questions"]
+        assert len(questions) == 5, f"Expected 5 questions, found {len(questions)}"
+
+        # Q1: multiple_choice (exit code 0)
+        q1 = questions[0]
+        assert engine._validate_multiple_choice(q1, "A")
+        assert not engine._validate_multiple_choice(q1, "B")
+
+        # Q2: multiple_choice (PR definition)
+        q2 = questions[1]
+        assert engine._validate_multiple_choice(q2, "B")
+        assert not engine._validate_multiple_choice(q2, "A")
+
+        # Q3: true_false (git commit doesn't upload)
+        q3 = questions[2]
+        assert engine._validate_true_false(q3, "B")
+        assert engine._validate_true_false(q3, "FALSE")
+        assert not engine._validate_true_false(q3, "A")
+
+        # Q4: multiple_choice (tab forbidden)
+        q4 = questions[3]
+        assert engine._validate_multiple_choice(q4, "A")
+        assert not engine._validate_multiple_choice(q4, "B")
+
+        # Q5: fill_yaml (- slack)
+        q5 = questions[4]
+        assert engine._validate_fill_yaml(q5, "- slack")
+        assert engine._validate_fill_yaml(q5, "- SLACK")
+        assert not engine._validate_fill_yaml(q5, "slack")
+
+    def test_chapter_0_does_not_change_course_completion_percentage(self, monkeypatch, tmp_path):
+        """Completing Chapter 0 must not change the course completion percentage or 30-chapter total."""
+        import json
+        from actionspath.utils.progress import get_course_progress
+
+        progress_file = tmp_path / "progress.json"
+        monkeypatch.setattr("actionspath.utils.progress.get_progress_file", lambda: progress_file)
+
+        # Baseline: No progress -> 0% of 30 chapters
+        progress_file.write_text(json.dumps({"chapters": {}}), encoding="utf-8")
+        base_progress = get_course_progress(30)
+        assert base_progress["total_chapters"] == 30
+        assert base_progress["completed_chapters"] == 0
+        assert base_progress["percentage"] == 0
+
+        # State 1: Chapter 0 completed -> Must still be 0% of 30 chapters
+        progress_file.write_text(
+            json.dumps({"chapters": {"0": {"section": "completed"}}}),
+            encoding="utf-8",
+        )
+        ch0_progress = get_course_progress(30)
+        assert ch0_progress["completed_chapters"] == 0, "Chapter 0 must not increment completed_chapters!"
+        assert ch0_progress["percentage"] == 0
+
+        # State 2: Chapter 1 completed alone
+        progress_file.write_text(
+            json.dumps({"chapters": {"1": {"section": "completed"}}}),
+            encoding="utf-8",
+        )
+        ch1_alone = get_course_progress(30)
+
+        # State 3: Chapter 1 AND Chapter 0 completed -> Must have exact same completion percentage as Chapter 1 alone
+        progress_file.write_text(
+            json.dumps({"chapters": {"0": {"section": "completed"}, "1": {"section": "completed"}}}),
+            encoding="utf-8",
+        )
+        ch1_with_ch0 = get_course_progress(30)
+        assert ch1_with_ch0["completed_chapters"] == ch1_alone["completed_chapters"] == 1
+        assert ch1_with_ch0["percentage"] == ch1_alone["percentage"] == 3
