@@ -1081,22 +1081,14 @@ def interactive_scenarios(
 
         # Main scenario loop
         while True:
-            # Show navigation
+            # Show unified action toolbar
             hints_used = engine.current_context.hint_manager.hints_used if engine.current_context else 0
             total_hints = len(scenario.get("hints", []))
+            show_ai = bool(GEMINI_AVAILABLE and is_gemini_configured())
 
-            console.print()
             render_scenario_navigation_help(
-                current_index + 1, total, hints_used, total_hints, console
+                current_index + 1, total, hints_used, total_hints, console, show_ai=show_ai
             )
-
-            # Check if AI is available and show option
-            if GEMINI_AVAILABLE and is_gemini_configured():
-                console.print("[info]\\[a][/info]i hint")
-
-            # Show command prompt
-            console.print()
-            console.print("[hint]Enter command, \\[e]dit file, \\[r]eset, \\[d]iff, \\[v]erify:[/hint]")
             user_input = get_command_input()
 
             # Handle navigation and editor keys

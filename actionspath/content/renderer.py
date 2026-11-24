@@ -973,9 +973,6 @@ def render_scenario_deployed(
         syntax = Syntax(manifest, "yaml", theme="monokai", line_numbers=True, word_wrap=True)
         console.print(Panel(syntax, title="[bold cyan]Initial Broken Workflow: .github/workflows/ci.yml[/bold cyan]", border_style="cyan", padding=(0, 1)))
 
-    console.print()
-    console.print("[warning]⚠️  Workspace ready. Press [bold cyan]\\[e][/bold cyan] to edit in nano, save, and auto-validate. Press [bold cyan]\\[r][/bold cyan] to reset.[/warning]")
-
 
 def render_scenario_hint(
     hint: str,
@@ -1009,8 +1006,9 @@ def render_scenario_navigation_help(
     hints_used: int,
     total_hints: int,
     console: Console | None = None,
+    show_ai: bool = False,
 ) -> None:
-    """Render navigation help for scenario mode.
+    """Render unified action toolbar for scenario mode.
 
     Args:
         index: Current scenario index (1-based).
@@ -1018,27 +1016,29 @@ def render_scenario_navigation_help(
         hints_used: Number of hints already used.
         total_hints: Total hints available.
         console: Optional Rich console to use.
+        show_ai: Whether to include the AI hint action.
     """
     if console is None:
         console = get_console()
 
+    nav_parts = [
+        "[bold cyan]\\[e][/bold cyan] Edit",
+        "[bold cyan]\\[d][/bold cyan] Diff",
+        "[bold cyan]\\[v][/bold cyan] Verify",
+        "[bold cyan]\\[r][/bold cyan] Reset",
+    ]
+
+    if total_hints > 0:
+        nav_parts.append(f"[bold cyan]\\[h][/bold cyan] Hint ({hints_used}/{total_hints})")
+
+    if show_ai:
+        nav_parts.append("[bold cyan]\\[a][/bold cyan] AI Hint")
+
+    nav_parts.append("[bold cyan]\\[s][/bold cyan] Skip")
+    nav_parts.append("[bold cyan]\\[q][/bold cyan] Quit")
+
     console.print()
-
-    # Build navigation options
-    nav_parts = []
-    nav_parts.append("[info]\\[e][/info]dit file")
-    nav_parts.append("[info]\\[r][/info]eset")
-    nav_parts.append("[info]\\[d][/info]iff")
-    nav_parts.append("[info]\\[v][/info]erify")
-
-    if hints_used < total_hints:
-        nav_parts.append(f"[info]\\[h][/info]int ({hints_used}/{total_hints})")
-
-    nav_parts.append("[info]\\[s][/info]kip")
-    nav_parts.append("[info]\\[q][/info]uit")
-
-    nav_text = "  ".join(nav_parts)
-    console.print(nav_text)
+    console.print(f"[bold yellow]Actions:[/bold yellow] " + "  ".join(nav_parts))
 
 
 def render_scenario_result(
