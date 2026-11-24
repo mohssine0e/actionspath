@@ -3,11 +3,13 @@ lab:
   id: "boss-lab-06"
   title: "Zero-Downtime Blue-Green & Canary Rollout"
   badge: "Master CI/CD Architect"
+  difficulty: "Master (Level 6/6)"
   scenario_type: "enterprise_architect"
   briefing: |
-    Architect the mission-critical core banking deployment pipeline.
+    Architect the mission-critical core banking deployment pipeline across 6 objectives.
     The rollout must route 10% traffic to canary, evaluate live error metrics, trigger automatic rollback
-    if any step fails, and only promote to 100% full rollout when all safety gates pass.
+    if any step fails, promote to 100% full rollout when all safety gates pass, lock production concurrency,
+    and execute an audit notification step.
 
   simulated_log: |
     2026-11-23T21:50:00.001Z ##[group]Starting Progressive Rollout
@@ -36,7 +38,7 @@ lab:
               run: ./check-metrics.sh
 
             - name: Promote Full Rollout
-              run: ./router.sh --canary 100
+              run: ./router.sh
 
   objectives:
     - id: "canary-traffic-route"
@@ -68,3 +70,33 @@ lab:
         - path: "jobs.deploy.steps"
           has_step_with_if: "failure()"
           message: "Rollback step must be guarded with 'if: failure()' to execute only on failure."
+
+    - id: "promote-full-rollout"
+      title: "Promote canary to 100% full rollout traffic on success"
+      hint: "Configure promotion step to run './router.sh --canary 100'."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.deploy.steps.4.run"
+          contains: "--canary 100"
+          message: "Step must promote traffic with './router.sh --canary 100'."
+
+    - id: "environment-concurrency"
+      title: "Add concurrency group locking 'production-deployment' without cancel-in-progress"
+      hint: "Add concurrency: group: production-deployment and cancel-in-progress: false."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "concurrency.group"
+          contains: "production"
+          message: "Workflow must lock production deployments using a concurrency group."
+        - path: "concurrency.cancel-in-progress"
+          equals: false
+          message: "Production deployment concurrency must NOT cancel in progress (cancel-in-progress: false)."
+
+    - id: "deploy-notification"
+      title: "Add audit notification step guarded by 'if: always()'"
+      hint: "Add a final notification step with if: always() running ./notify.sh."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.deploy.steps.5.if"
+          contains: "always()"
+          message: "Final step must execute unconditionally with 'if: always()'."

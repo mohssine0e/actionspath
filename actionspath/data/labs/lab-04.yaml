@@ -3,11 +3,12 @@ lab:
   id: "boss-lab-04"
   title: "The Red-Team Security Audit"
   badge: "DevSecOps Architect"
+  difficulty: "Advanced (Level 4/6)"
   scenario_type: "security_audit"
   briefing: |
-    A security penetration audit uncovered 3 severe vulnerabilities in Acme's production workflow.
+    A security penetration audit uncovered severe vulnerabilities in Acme's production workflow.
     Although all checks pass green on GitHub, attackers can exfiltrate AWS deployment credentials
-    via PR checkout exploits, script injection, and static credentials. Patch all 3 vulnerabilities.
+    via PR checkout exploits, script injection, and static credentials. Patch all vulnerabilities across 5 objectives.
 
   simulated_log: |
     2026-11-23T21:30:00.010Z ##[warning]Vulnerability Alert: pull_request_target with untrusted head ref checkout
@@ -62,17 +63,29 @@ lab:
           not_contains: "${{ github.event"
           message: "run: script must not inline ${{ github.event... }} directly into shell."
 
-    - id: "enable-oidc-permissions"
-      title: "Declare OIDC permissions (id-token: write, contents: read) and eliminate static AWS keys"
-      hint: "Add permissions: id-token: write and contents: read, and remove static AWS_KEY / AWS_ACCESS_KEY_ID."
+    - id: "enable-oidc-token-write"
+      title: "Declare OIDC token generation permission (id-token: write)"
+      hint: "Add permissions: id-token: write at the workflow level."
       file: ".github/workflows/ci.yml"
       assertions:
         - path: "permissions.id-token"
           equals: "write"
           message: "Workflow must declare 'permissions.id-token: write' for OIDC."
+
+    - id: "enable-contents-read"
+      title: "Explicitly declare contents: read to prevent checkout permission wipeout"
+      hint: "Add permissions: contents: read alongside id-token: write."
+      file: ".github/workflows/ci.yml"
+      assertions:
         - path: "permissions.contents"
           equals: "read"
           message: "Workflow must explicitly declare 'permissions.contents: read'."
+
+    - id: "eliminate-static-credentials"
+      title: "Eliminate permanent static AWS_ACCESS_KEY_ID secret from step environment"
+      hint: "Remove the AWS_KEY environment variable from the Configure Cloud step."
+      file: ".github/workflows/ci.yml"
+      assertions:
         - path: "jobs.deploy.steps.2.env.AWS_KEY"
           absent: true
           message: "Static secret AWS_ACCESS_KEY_ID must be eliminated from step environment."

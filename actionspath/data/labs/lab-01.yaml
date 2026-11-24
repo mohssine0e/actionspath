@@ -3,11 +3,12 @@ lab:
   id: "boss-lab-01"
   title: "The Black Friday Incident"
   badge: "Certified CI Operator"
+  difficulty: "Beginner (Level 1/6)"
   scenario_type: "log_detective"
   briefing: |
     It is 2:00 AM on Black Friday. Acme Retail's deployment pipeline crashed after an emergency PR was opened.
     The simulated runner log below shows circular dependency and nested expression failures, while concurrent
-    runs are hitting GitHub concurrency limits. Investigate and restore pipeline integrity.
+    runs are hitting GitHub concurrency limits. Investigate and restore pipeline integrity across 4 objectives.
 
   simulated_log: |
     2026-11-23T20:14:02.128Z ##[group]Run actions/checkout@v4
@@ -37,20 +38,26 @@ lab:
             - run: npm test
 
   objectives:
-    - id: "fix-duplicate-triggers"
-      title: "Scope push and pull_request triggers to prevent duplicate runs on main"
-      hint: "Define on.push.branches: [main] and on.pull_request.branches: [main]."
+    - id: "fix-push-trigger"
+      title: "Scope 'push' trigger strictly to the 'main' branch"
+      hint: "Configure on.push.branches: [main]."
       file: ".github/workflows/ci.yml"
       assertions:
         - path: "on.push.branches"
           contains: "main"
           message: "The 'push' trigger must be scoped to the 'main' branch."
+
+    - id: "fix-pr-trigger"
+      title: "Scope 'pull_request' trigger strictly to the 'main' branch"
+      hint: "Configure on.pull_request.branches: [main]."
+      file: ".github/workflows/ci.yml"
+      assertions:
         - path: "on.pull_request.branches"
           contains: "main"
           message: "The 'pull_request' trigger must be scoped to the 'main' branch."
 
     - id: "resolve-dag-cycle"
-      title: "Break the circular dependency so build runs before test"
+      title: "Break the circular dependency so build runs first without dependencies"
       hint: "Remove 'needs: test' from the 'build' job; keep 'needs: build' in 'test'."
       file: ".github/workflows/ci.yml"
       assertions:

@@ -3,11 +3,13 @@ lab:
   id: "boss-lab-05"
   title: "The Internal Developer Platform (IDP)"
   badge: "Platform Tooling Engineer"
+  difficulty: "Expert (Level 5/6)"
   scenario_type: "greenfield_build"
   briefing: |
     As platform engineer, your task is to author a reusable Composite Action in '.github/actions/security-scan/action.yml'
     from scratch and invoke it from a caller workflow in '.github/workflows/verify.yml'.
-    The action must declare typed inputs, execute composite steps with bash shell, and receive secret tokens via action inputs.
+    The action must declare typed inputs, execute composite steps with bash shell, export an output URL,
+    and be invoked cleanly from the caller workflow across 5 objectives.
 
   simulated_log: |
     2026-11-23T21:40:01.100Z ##[group]Run platform-tooling-audit
@@ -34,18 +36,24 @@ lab:
 
   objectives:
     - id: "composite-runs-metadata"
-      title: "Define runs.using: composite and step shell: bash in action.yml"
-      hint: "Add runs: using: 'composite' and steps: - run: echo 'scanning' shell: bash."
+      title: "Define runs.using: composite in action.yml"
+      hint: "Add runs: using: 'composite' in .github/actions/security-scan/action.yml."
       file: ".github/actions/security-scan/action.yml"
       assertions:
         - path: "runs.using"
           equals: "composite"
           message: "Action must specify runs.using: composite."
+
+    - id: "enforce-step-shell"
+      title: "Explicitly declare shell: bash on all composite action steps"
+      hint: "Composite steps require an explicit shell directive (e.g. shell: bash)."
+      file: ".github/actions/security-scan/action.yml"
+      assertions:
         - path: "runs.steps.0.shell"
           equals: "bash"
           message: "Composite action steps must explicitly declare 'shell: bash'."
 
-    - id: "composite-inputs"
+    - id: "composite-input-token"
       title: "Declare 'token' input in action.yml"
       hint: "Add inputs: token: description: 'Scan token' required: true."
       file: ".github/actions/security-scan/action.yml"
@@ -53,6 +61,15 @@ lab:
         - path: "inputs.token"
           exists: true
           message: "Composite action must define a 'token' input."
+
+    - id: "composite-output-report"
+      title: "Declare 'report-url' output in action.yml"
+      hint: "Add outputs: report-url: description: 'Report URL' value: ${{ steps.scan.outputs.url }}."
+      file: ".github/actions/security-scan/action.yml"
+      assertions:
+        - path: "outputs.report-url"
+          exists: true
+          message: "Composite action must define a 'report-url' output."
 
     - id: "caller-local-invocation"
       title: "Invoke local composite action in verify.yml using ./.github/actions/security-scan"

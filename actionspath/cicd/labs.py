@@ -47,6 +47,7 @@ class BossLab:
     scenario_type: str
     briefing: str
     objectives: List[Dict[str, Any]]
+    difficulty: str = "Intermediate"
     simulated_log: Optional[str] = None
     initial_files: Dict[str, str] = field(default_factory=dict)
     solution_files: Optional[Dict[str, str]] = None
@@ -84,6 +85,7 @@ def load_boss_lab(module_num: int) -> Optional[BossLab]:
         id=lab_data.get("id", f"boss-lab-{module_num:02d}"),
         title=lab_data.get("title", f"Module {module_num} Capstone Lab"),
         badge=lab_data.get("badge", "Mastery Badge"),
+        difficulty=lab_data.get("difficulty", "Intermediate"),
         scenario_type=lab_data.get("scenario_type", "incident_triage"),
         briefing=lab_data.get("briefing", "").strip(),
         simulated_log=lab_data.get("simulated_log", "").strip() or None,
@@ -304,6 +306,8 @@ def run_boss_lab(module_num: int) -> bool:
         header = Text()
         header.append(f"👑 MODULE {lab.module} BOSS LAB: ", style="bold yellow")
         header.append(lab.title, style="bold cyan")
+        header.append(f"  |  Tier: ", style="dim")
+        header.append(lab.difficulty, style="bold green")
         header.append(f"  |  Reward: ", style="dim")
         header.append(lab.badge, style="bold magenta")
         console.print(Panel(header, border_style="gold1"))

@@ -214,11 +214,15 @@ jobs:
         wrong_res = validate_boss_lab(tmp_path, lab)
         assert not wrong_res.success, "Wrong solution without 'if: failure()' unexpectedly passed!"
 
-        # 3. Correct solution: with 'if: failure()'
+        # 3. Correct solution: with all 6 objectives satisfied
         correct_workflow = """name: Core Banking Deployment
 on:
   push:
     branches: [main]
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -238,6 +242,10 @@ jobs:
 
       - name: Promote Full Rollout
         run: ./router.sh --canary 100
+
+      - name: Audit Notification
+        if: always()
+        run: ./notify.sh
 """
         ci_file.write_text(correct_workflow, encoding="utf-8")
         correct_res = validate_boss_lab(tmp_path, lab)

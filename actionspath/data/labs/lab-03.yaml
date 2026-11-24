@@ -3,11 +3,12 @@ lab:
   id: "boss-lab-03"
   title: "The Multi-Service Monorepo Release"
   badge: "Release Engineer"
+  difficulty: "Intermediate (Level 3/6)"
   scenario_type: "monorepo_orchestrator"
   briefing: |
     A monorepo hosts an 'api' backend and a 'frontend' web application. Every commit currently triggers
     redundant builds for both services, causing race conditions in deployment and upload-artifact@v4 collisions.
-    Configure path filters, dynamic artifact names, and concurrency cancellation.
+    Configure path filters, dynamic artifact names, PR concurrency cancellation, and downstream consumption across 5 objectives.
 
   simulated_log: |
     2026-11-23T21:15:10.002Z ##[group]Run actions/upload-artifact@v4
@@ -39,6 +40,12 @@ lab:
                 name: build-dist
                 path: dist/
 
+        deploy:
+          runs-on: ubuntu-latest
+          steps:
+            - name: Download Artifacts
+              run: echo "Waiting for artifacts"
+
   objectives:
     - id: "add-concurrency"
       title: "Add top-level concurrency group with cancel-in-progress enabled for PRs"
@@ -53,13 +60,22 @@ lab:
           message: "Workflow must define a concurrency.group key."
 
     - id: "scope-path-filters"
-      title: "Add paths filter to push trigger so changes to docs/ do not trigger builds"
-      hint: "Add push.paths-ignore: ['docs/**'] or push.paths: ['api/**', 'frontend/**']."
+      title: "Add paths filter to push trigger so changes only trigger on service code"
+      hint: "Add push.paths: ['api/**', 'frontend/**']."
       file: ".github/workflows/ci.yml"
       assertions:
-        - path: "on.push"
+        - path: "on.push.paths"
           exists: true
-          message: "on.push must specify path filtering (paths or paths-ignore)."
+          message: "on.push must specify path filtering (paths: ['api/**', 'frontend/**'])."
+
+    - id: "ignore-docs-paths"
+      title: "Add paths-ignore filter so documentation changes do not trigger builds"
+      hint: "Add push.paths-ignore: ['docs/**']."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "on.push.paths-ignore"
+          contains: "docs/**"
+          message: "on.push must specify paths-ignore with 'docs/**'."
 
     - id: "namespace-artifact-name"
       title: "Namespace artifact upload name dynamically with ${{ matrix.service }}"
@@ -69,3 +85,15 @@ lab:
         - path: "jobs.build-services.steps.2.with.name"
           matches_regex: "matrix\\.service"
           message: "Artifact name must include ${{ matrix.service }} to prevent immutability collision."
+
+    - id: "downstream-deploy-job"
+      title: "Configure deploy job to depend on build-services and use download-artifact@v4"
+      hint: "Add needs: build-services to deploy job and use actions/download-artifact@v4."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.deploy.needs"
+          equals: "build-services"
+          message: "Job 'deploy' must declare 'needs: build-services'."
+        - path: "jobs.deploy.steps"
+          has_step_using: "actions/download-artifact"
+          message: "Job 'deploy' must include a step using 'actions/download-artifact'."

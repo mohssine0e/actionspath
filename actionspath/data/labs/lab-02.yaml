@@ -3,11 +3,13 @@ lab:
   id: "boss-lab-02"
   title: "The 5x Pipeline Accelerator"
   badge: "Runner & Matrix Specialist"
+  difficulty: "Elementary (Level 2/6)"
   scenario_type: "performance_audit"
   briefing: |
     Acme's engineering team complains that CI builds take over 25 minutes. Deep Docker image builds
     routinely crash with 'ENOSPC: No space left on device', while multi-version testing runs sequentially.
-    Optimize this workflow by reclaiming disk space, adding a 2D test matrix, and implementing lockfile caching.
+    Optimize this workflow across 4 objectives by reclaiming disk space, adding a 2D matrix,
+    disabling fail-fast, and implementing lockfile caching.
 
   simulated_log: |
     2026-11-23T21:05:12.890Z ##[group]Run docker build -t app:latest .
@@ -43,13 +45,22 @@ lab:
           message: "Job must include a disk cleanup step executing 'rm -rf /usr/share/dotnet' or similar."
 
     - id: "configure-matrix"
-      title: "Parallelize test job into an OS and Node matrix with fail-fast disabled"
-      hint: "Add strategy.matrix with os: [ubuntu-latest, macos-latest] and node: [18, 20], and fail-fast: false."
+      title: "Parallelize test job into an OS and Node matrix"
+      hint: "Add strategy.matrix with os: [ubuntu-latest, macos-latest] and node: [18, 20]."
       file: ".github/workflows/ci.yml"
       assertions:
         - path: "jobs.slow-build.strategy.matrix.os"
           contains: "ubuntu-latest"
           message: "Matrix strategy must include os with ubuntu-latest."
+        - path: "jobs.slow-build.strategy.matrix.node"
+          exists: true
+          message: "Matrix strategy must include node dimension (e.g. node: [18, 20])."
+
+    - id: "disable-fail-fast"
+      title: "Disable strategy fail-fast so flaky operating systems do not abort parallel runs"
+      hint: "Set strategy.fail-fast: false under the job."
+      file: ".github/workflows/ci.yml"
+      assertions:
         - path: "jobs.slow-build.strategy.fail-fast"
           equals: false
           message: "strategy.fail-fast must be set to false."
