@@ -34,24 +34,24 @@ concepts:
     type: tree
     title: GitHub Actions Execution Hierarchy
     root:
-      label: ⚡ GitHub Event Trigger
+      label: Event Trigger
       badge: push | pull_request | workflow_dispatch
       children:
-      - label: 📄 Workflow File (.github/workflows/ci.yml)
+      - label: Workflow File (.github/workflows/ci.yml)
         badge: orchestrator
         children:
-        - label: '⚙️ Job 1: Build & Unit Test'
+        - label: 'Job 1: Build & Unit Test'
           badge: 'runs-on: ubuntu-latest'
           children:
-          - label: '📦 Step 1: actions/checkout@v4'
-          - label: '🔧 Step 2: actions/setup-node@v4'
+          - label: 'Step 1: actions/checkout@v4'
+          - label: 'Step 2: actions/setup-node@v4'
             badge: 'node: 20'
-          - label: '▶️ Step 3: run: npm test'
-        - label: '⚙️ Job 2: Security Lint'
+          - label: 'Step 3: run: npm test'
+        - label: 'Job 2: Security Lint'
           badge: 'runs-on: ubuntu-latest'
           children:
-          - label: '📦 Step 1: actions/checkout@v4'
-          - label: '▶️ Step 2: run: npm run lint'
+          - label: 'Step 1: actions/checkout@v4'
+          - label: 'Step 2: run: npm run lint'
 - title: "Workflow Triggers (`on`)"
   content: |
     The `on` keyword defines **when** a workflow executes. Without a trigger, a workflow will never run.

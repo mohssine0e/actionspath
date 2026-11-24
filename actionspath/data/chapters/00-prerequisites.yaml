@@ -32,24 +32,24 @@ concepts:
     type: tree
     title: The Git Local vs Remote Boundary
     root:
-      label: 💻 Developer Laptop (Local)
+      label: Developer Laptop (Local)
       badge: offline
       children:
-      - label: 📝 Working Tree (Editing files)
+      - label: Working Tree (Editing files)
         children:
-        - label: 📋 Staging Area (git add)
+        - label: Staging Area (git add)
           children:
-          - label: 📦 Local Commit (git commit)
+          - label: Local Commit (git commit)
             badge: strictly local
             children:
-            - label: 🚀 git push origin <branch>
+            - label: git push origin <branch>
               badge: network boundary
               children:
-              - label: 🌐 GitHub Remote Repository
+              - label: GitHub Remote Repository
                 badge: cloud
                 children:
-                - label: ⚡ GitHub Event Bus (push / PR)
-                - label: 🤖 GitHub Actions CI Runner
+                - label: GitHub Event Bus (push / PR)
+                - label: GitHub Actions CI Runner
 
 - title: "What is a Pull Request (PR) & Why CI Runs on It?"
   content: |
@@ -66,8 +66,8 @@ concepts:
 
     **The CI/CD Verification Gate:**
     When a Pull Request is opened, GitHub immediately fires the `pull_request` event. GitHub Actions boots a clean virtual machine, checks out your PR branch, runs tests and security linters, and reports status directly on the PR page:
-    - **Green Check (✅)**: All automated tests passed. The code is safe to review and merge.
-    - **Red Cross (❌)**: Tests failed or lint errors detected. The merge button is locked to prevent broken code from reaching production.
+    - **Green Check (Pass)**: All automated tests passed. The code is safe to review and merge.
+    - **Red Cross (Fail)**: Tests failed or lint errors detected. The merge button is locked to prevent broken code from reaching production.
   key_points:
   - "A Pull Request is a formal request to pull commits from a feature branch into main"
   - "Feature branches isolate work-in-progress code from production stability"
@@ -75,7 +75,7 @@ concepts:
   - "CI status checks (Green Check / Red Cross) act as automated quality gates before merging"
 
   diagram:
-    type: pipeline
+    type: pipeline_dag
     title: The Pull Request CI Quality Gate
     stages:
     - name: 1. Branch & Commit
@@ -100,7 +100,7 @@ concepts:
       status: success
       steps:
       - label: Runner executes test suite
-      - label: Green Check (Pass) or Red Cross (Fail)
+      - label: Status check passes (exit 0) or fails
     - name: 5. Merge into Main
       badge: production
       status: success
@@ -141,29 +141,27 @@ concepts:
   diagram:
     type: sequence
     title: CI Step Exit Code Evaluation
-    participants:
-    - name: Runner
-      label: GitHub Actions Runner
-    - name: Shell
-      label: Bash Shell Process
-    - name: Command
-      label: Step Command (npm test / pytest)
-    messages:
-    - from: Runner
-      to: Shell
-      label: Execute step command
-    - from: Shell
-      to: Command
-      label: Run binary / test suite
-    - from: Command
-      to: Shell
-      label: Return exit code (0 or 1)
-    - from: Shell
+    steps:
+    - step: 1
+      from: Runner
+      to: Shell Process
+      action: Execute Step Command
+      desc: Spawns subshell (bash -e {0}) to run step script
+    - step: 2
+      from: Shell Process
+      to: Test Binary
+      action: Run Test Suite
+      desc: Executes npm test / pytest inside workspace
+    - step: 3
+      from: Test Binary
+      to: Shell Process
+      action: Return Exit Code
+      desc: Exits with 0 on pass, or 1-255 on assertion failure
+    - step: 4
+      from: Shell Process
       to: Runner
-      label: Report exit status
-    - from: Runner
-      to: Runner
-      label: 0 = Next Step | !=0 = Abort & Fail Job
+      action: Evaluate Status
+      desc: If exit code is 0 proceeds; if non-zero immediately halts job
 
 - title: "YAML Basics for Workflow Authors"
   content: |

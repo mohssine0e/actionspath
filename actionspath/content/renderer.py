@@ -92,7 +92,7 @@ def render_terminal_diagram(
     d_type = diagram.get("type")
     if d_type == "tree":
         render_tree_diagram(diagram, console)
-    elif d_type == "pipeline_dag":
+    elif d_type in ("pipeline_dag", "pipeline"):
         render_pipeline_dag(diagram, console)
     elif d_type == "sequence":
         render_sequence_timeline(diagram, console)
@@ -139,7 +139,7 @@ def render_tree_diagram(data: dict[str, Any], console: Console) -> None:
 
     panel = Panel(
         tree,
-        title=f"[bold green]📊 {title}[/bold green]",
+        title=f"[bold green]{title}[/bold green]",
         border_style="cyan",
         padding=(1, 2),
     )
@@ -147,7 +147,7 @@ def render_tree_diagram(data: dict[str, Any], console: Console) -> None:
 
 
 def render_pipeline_dag(data: dict[str, Any], console: Console) -> None:
-    """Render multi-job dependency graph (DAG) or parallel matrix stages."""
+    """Render multi-job dependency graph (DAG) or parallel matrix stages with generous width."""
     title = data.get("title", "Pipeline Dependency Graph")
     stages = data.get("stages", [])
     if not stages:
@@ -155,41 +155,55 @@ def render_pipeline_dag(data: dict[str, Any], console: Console) -> None:
         return
 
     width = console.width or 80
-    use_horizontal = width >= 90 and len(stages) <= 4
+    min_col_width = 36
+    num_stages = len(stages)
+    needed_width = num_stages * min_col_width + (num_stages - 1) * 6 + 10
+    use_horizontal = width >= needed_width and num_stages <= 3
 
     if use_horizontal:
         grid = Table.grid(padding=(0, 1))
-        for idx in range(len(stages) * 2 - 1):
+        for idx in range(num_stages * 2 - 1):
             grid.add_column()
 
         row_items = []
         for idx, stage in enumerate(stages):
             if idx > 0:
-                row_items.append(Text("\n ──▶ \n", style="bold green"))
+                row_items.append(Text("\n ──▶ \n", style="bold cyan"))
 
             st_name = stage.get("name", f"Stage {idx+1}")
             jobs = stage.get("jobs", [])
+            steps = stage.get("steps", [])
             needs = stage.get("needs", [])
+            badge = stage.get("badge", "")
+
             lines = []
+            if badge:
+                lines.append(f"[dim]Environment:[/dim] [cyan]{badge}[/cyan]")
             if needs:
-                lines.append(f"[dim]needs: {', '.join(needs)}[/dim]")
+                lines.append(f"[dim]Dependencies:[/dim] needs [yellow]{', '.join(needs)}[/yellow]")
+
             for j in jobs:
                 j_name = j.get("name", j) if isinstance(j, dict) else str(j)
-                runner = f" [dim]({j.get('runner')})[/dim]" if isinstance(j, dict) and "runner" in j else ""
-                lines.append(f"[bold magenta]⚙️ {j_name}[/bold magenta]{runner}")
+                runner = f"  [dim cyan]({j.get('runner')})[/dim cyan]" if isinstance(j, dict) and "runner" in j else ""
+                lines.append(f"[bold white]• {j_name}[/bold white]{runner}")
+
+            for s in steps:
+                s_lbl = s.get("label", s) if isinstance(s, dict) else str(s)
+                lines.append(f"[white]• {s_lbl}[/white]")
 
             stage_panel = Panel(
-                "\n".join(lines) if lines else "[dim]No jobs[/dim]",
-                title=f"[bold yellow]{st_name}[/bold yellow]",
-                border_style="bright_blue",
-                padding=(0, 1),
+                "\n".join(lines) if lines else "[dim]No tasks[/dim]",
+                title=f"[bold cyan]{st_name}[/bold cyan]",
+                title_align="left",
+                border_style="blue",
+                padding=(0, 2),
             )
             row_items.append(stage_panel)
 
         grid.add_row(*row_items)
         outer_panel = Panel(
             grid,
-            title=f"[bold green]📊 {title}[/bold green]",
+            title=f"[bold green]{title}[/bold green]",
             border_style="cyan",
             padding=(1, 2),
         )
@@ -199,25 +213,36 @@ def render_pipeline_dag(data: dict[str, Any], console: Console) -> None:
         for idx, stage in enumerate(stages):
             st_name = stage.get("name", f"Stage {idx+1}")
             jobs = stage.get("jobs", [])
+            steps = stage.get("steps", [])
             needs = stage.get("needs", [])
+            badge = stage.get("badge", "")
+
             lines = []
+            if badge:
+                lines.append(f"[dim]Environment:[/dim] [cyan]{badge}[/cyan]")
             if needs:
-                lines.append(f"[dim]needs: {', '.join(needs)}[/dim]")
+                lines.append(f"[dim]Dependencies:[/dim] needs [yellow]{', '.join(needs)}[/yellow]")
+
             for j in jobs:
                 j_name = j.get("name", j) if isinstance(j, dict) else str(j)
-                runner = f" [dim]({j.get('runner')})[/dim]" if isinstance(j, dict) and "runner" in j else ""
-                lines.append(f"[bold magenta]⚙️ {j_name}[/bold magenta]{runner}")
+                runner = f"  [dim cyan]({j.get('runner')})[/dim cyan]" if isinstance(j, dict) and "runner" in j else ""
+                lines.append(f"[bold white]• {j_name}[/bold white]{runner}")
+
+            for s in steps:
+                s_lbl = s.get("label", s) if isinstance(s, dict) else str(s)
+                lines.append(f"[white]• {s_lbl}[/white]")
 
             elements.append(
                 Panel(
-                    "\n".join(lines) if lines else "[dim]No jobs[/dim]",
-                    title=f"[bold yellow]{st_name}[/bold yellow]",
-                    border_style="bright_blue",
-                    padding=(0, 1),
+                    "\n".join(lines) if lines else "[dim]No tasks[/dim]",
+                    title=f"[bold cyan]{st_name}[/bold cyan]",
+                    title_align="left",
+                    border_style="blue",
+                    padding=(0, 2),
                 )
             )
             if idx < len(stages) - 1:
-                elements.append(Text("      ▼", style="bold green"))
+                elements.append(Text("         │\n         ▼", style="bold cyan"))
 
         group_content = Table.grid()
         for elem in elements:
@@ -225,7 +250,7 @@ def render_pipeline_dag(data: dict[str, Any], console: Console) -> None:
 
         outer_panel = Panel(
             group_content,
-            title=f"[bold green]📊 {title}[/bold green]",
+            title=f"[bold green]{title}[/bold green]",
             border_style="cyan",
             padding=(1, 2),
         )
@@ -236,6 +261,17 @@ def render_sequence_timeline(data: dict[str, Any], console: Console) -> None:
     """Render chronological protocol exchange (e.g. OIDC handshake)."""
     title = data.get("title", "Protocol Sequence")
     steps = data.get("steps", [])
+    if not steps and "messages" in data:
+        steps = []
+        for idx, m in enumerate(data.get("messages", [])):
+            steps.append({
+                "step": idx + 1,
+                "from": m.get("from", "Runner"),
+                "to": m.get("to", "Service"),
+                "action": m.get("label", ""),
+                "desc": m.get("desc", ""),
+            })
+
     if not steps:
         render_ascii_diagram(data, console)
         return
@@ -248,10 +284,10 @@ def render_sequence_timeline(data: dict[str, Any], console: Console) -> None:
         expand=True,
     )
     table.add_column("#", style="bold yellow", width=3, justify="center")
-    table.add_column("From", style="magenta", width=14)
+    table.add_column("From", style="magenta", width=16)
     table.add_column("Dir", style="bold green", width=3, justify="center")
     table.add_column("To", style="cyan", width=16)
-    table.add_column("Action / Payload", style="white")
+    table.add_column("Action / Description", style="white")
 
     for idx, s in enumerate(steps):
         s_num = str(s.get("step", idx + 1))
@@ -264,7 +300,7 @@ def render_sequence_timeline(data: dict[str, Any], console: Console) -> None:
 
     panel = Panel(
         table,
-        title=f"[bold green]📊 {title}[/bold green]",
+        title=f"[bold green]{title}[/bold green]",
         border_style="cyan",
         padding=(1, 2),
     )
@@ -301,7 +337,7 @@ def render_state_flow(data: dict[str, Any], console: Console) -> None:
     )
 
     width = console.width or 80
-    if width >= 90:
+    if width >= 110:
         grid = Table.grid(padding=(0, 1))
         grid.add_column(ratio=1)
         grid.add_column(width=10, justify="center")
@@ -317,7 +353,7 @@ def render_state_flow(data: dict[str, Any], console: Console) -> None:
 
     panel = Panel(
         content,
-        title=f"[bold green]📊 {title}[/bold green]",
+        title=f"[bold green]{title}[/bold green]",
         border_style="cyan",
         padding=(1, 2),
     )
@@ -339,9 +375,12 @@ def render_ascii_diagram(
         diag_title = "Architecture Diagram"
         diag_body = str(diagram)
 
+    if not diag_body.strip():
+        return
+
     panel = Panel(
         Text(diag_body, style="bold cyan"),
-        title=f"[bold green]📊 {diag_title}[/bold green]",
+        title=f"[bold green]{diag_title}[/bold green]",
         border_style="bright_blue",
         padding=(1, 2),
     )
@@ -1115,7 +1154,7 @@ def render_quiz_header(
         console = get_console()
 
     console.print()
-    console.print("[info]📝 Quiz Time![/info]")
+    console.print("[info]Quiz Time[/info]")
     console.print(f"[hint]Answer {total_questions} questions. Passing score: {passing_score}%[/hint]")
     console.print()
 
@@ -1233,7 +1272,7 @@ def render_quiz_result(
 
     if explanation:
         console.print()
-        console.print(f"[hint]📖 {explanation}[/hint]")
+        console.print(f"[hint]{explanation}[/hint]")
 
 
 def render_quiz_summary(
