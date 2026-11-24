@@ -29,11 +29,11 @@ lab:
           steps:
             - uses: actions/checkout@v4
 
-            - name: Shift 10% Canary Traffic
-              run: ./router.sh --canary 10
+            - name: Shift Canary Traffic
+              run: ./router.sh
 
             - name: Evaluate Canary Telemetry
-              run: ./check-metrics.sh --max-error-rate 0.001
+              run: ./check-metrics.sh
 
             - name: Promote Full Rollout
               run: ./router.sh --canary 100
@@ -41,7 +41,7 @@ lab:
   objectives:
     - id: "canary-traffic-route"
       title: "Route initial 10% traffic to canary slot"
-      hint: "Ensure step runs './router.sh --canary 10'."
+      hint: "Configure step to run './router.sh --canary 10'."
       file: ".github/workflows/ci.yml"
       assertions:
         - path: "jobs.deploy.steps.1.run"
@@ -50,12 +50,12 @@ lab:
 
     - id: "automated-metric-gate"
       title: "Evaluate live error rate threshold before promotion"
-      hint: "Include metric evaluation step checking --max-error-rate."
+      hint: "Configure metric evaluation step to run './check-metrics.sh --max-error-rate 0.001'."
       file: ".github/workflows/ci.yml"
       assertions:
         - path: "jobs.deploy.steps.2.run"
-          contains: "check-metrics"
-          message: "Must include metric evaluation check."
+          contains: "--max-error-rate 0.001"
+          message: "Must include metric evaluation check with '--max-error-rate 0.001'."
 
     - id: "automated-rollback-guard"
       title: "Add automated rollback step guarded by 'if: failure()'"
@@ -65,3 +65,6 @@ lab:
         - path: "jobs.deploy.steps"
           has_step_with_run: "rollback"
           message: "Job must include a rollback step executing './router.sh --rollback' or similar."
+        - path: "jobs.deploy.steps"
+          has_step_with_if: "failure()"
+          message: "Rollback step must be guarded with 'if: failure()' to execute only on failure."

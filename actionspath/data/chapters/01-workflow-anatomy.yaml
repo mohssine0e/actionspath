@@ -173,7 +173,7 @@ scenarios:
   title: "Fix Missing Job Runner"
   description: |
     A workflow is failing validation because a job does not specify an operating system runner.
-    Update `.github/workflows/ci.yml` so the `test` job specifies `runs-on: ubuntu-latest`.
+    Update `.github/workflows/ci.yml` so the `lint` job specifies `runs-on: ubuntu-latest`.
   manifest: |
     name: Lint and Check
     on: [push, pull_request]
@@ -189,7 +189,7 @@ scenarios:
     type: "workflow"
     file: ".github/workflows/ci.yml"
     assertions:
-    - path: jobs.test.runs-on
+    - path: jobs.lint.runs-on
       exists: true
       message: 'Job must declare runs-on: ubuntu-latest.'
   points: 25

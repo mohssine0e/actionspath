@@ -713,6 +713,22 @@ def check_yaml_assertion(
         if not found:
             return False, f"Steps list at '{path}' is missing a step running '{assertion['has_step_with_run']}'."
 
+    # 7. Steps list checking: has_step_with_if
+    if "has_step_with_if" in assertion:
+        target_if = assertion["has_step_with_if"].lower()
+        if not isinstance(val, list):
+            return False, f"At '{path}': expected a list of steps, got {type(val).__name__}."
+
+        found = False
+        for step in val:
+            if isinstance(step, dict) and "if" in step:
+                if_val = str(step["if"]).lower()
+                if target_if in if_val:
+                    found = True
+                    break
+        if not found:
+            return False, f"Steps list at '{path}' is missing a step with conditional if containing '{assertion['has_step_with_if']}'."
+
     return True, "Assertion passed."
 
 

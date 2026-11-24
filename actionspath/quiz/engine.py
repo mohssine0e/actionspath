@@ -201,22 +201,58 @@ class QuizEngine:
     def _validate_multiple_choice(self, question: dict[str, Any], answer: str) -> bool:
         """Validate multiple choice answer.
 
+        Supports:
+        - Letter input: 'A', 'B', 'C', 'D'
+        - 'correct' field as index (0-based int)
+        - 'correct' field as text matching an option string in 'options'
+        - 'correct' field as letter ('A', 'B', 'C', 'D')
+        - Direct text input matching the correct answer
+
         Args:
-            question: Question with 'correct' index (0-based).
-            answer: User answer (A, B, C, or D).
+            question: Question dict with 'options' and 'correct'.
+            answer: User answer string.
 
         Returns:
-            True if answer matches correct index.
+            True if answer matches the correct option.
         """
-        answer = answer.upper()
-        if answer not in ("A", "B", "C", "D"):
-            return False
+        raw_answer = answer.strip()
+        upper_answer = raw_answer.upper()
+        options = question.get("options", [])
+        correct_raw = question.get("correct")
 
-        # Convert letter to index (A=0, B=1, C=2, D=3)
-        answer_index = ord(answer) - ord("A")
-        correct_index = question.get("correct", -1)
+        # Resolve correct_index (0-based) from question specification
+        correct_index = -1
+        if isinstance(correct_raw, int):
+            correct_index = correct_raw
+        elif isinstance(correct_raw, str):
+            # Check if correct is a letter 'A'..'D'
+            if correct_raw.upper() in ("A", "B", "C", "D") and len(correct_raw) == 1:
+                correct_index = ord(correct_raw.upper()) - ord("A")
+            else:
+                # Find matching text in options
+                for idx, opt in enumerate(options):
+                    if str(opt).strip().lower() == correct_raw.strip().lower():
+                        correct_index = idx
+                        break
 
-        return answer_index == correct_index
+        # Check if user answered with a letter (A, B, C, D)
+        if upper_answer in ("A", "B", "C", "D") and len(upper_answer) == 1:
+            user_index = ord(upper_answer) - ord("A")
+            if correct_index != -1:
+                return user_index == correct_index
+            if user_index < len(options) and str(correct_raw).strip().lower() == str(options[user_index]).strip().lower():
+                return True
+
+        # Check if user typed the literal correct text directly
+        if str(correct_raw).strip().lower() == raw_answer.lower():
+            return True
+
+        # Check if user typed option text matching correct_index
+        if correct_index != -1 and correct_index < len(options):
+            if str(options[correct_index]).strip().lower() == raw_answer.lower():
+                return True
+
+        return False
 
     def _validate_true_false(self, question: dict[str, Any], answer: str) -> bool:
         """Validate true/false answer.

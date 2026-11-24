@@ -12,7 +12,7 @@ import yaml
 from ruamel.yaml import YAML
 from ruamel.yaml.error import YAMLError
 
-from actionspath.cicd.validator import _load_yaml, check_yaml_assertion
+from actionspath.cicd.validator import _load_yaml, check_yaml_assertion, validate_workflow_structure
 
 
 @dataclass
@@ -180,6 +180,22 @@ def validate_boss_lab(workspace: Path, lab: BossLab) -> BossLabValidationResult:
                 )
             )
             continue
+
+        # Check workflow structural schema if file is a GitHub Actions workflow
+        if ".github/workflows" in target_file_rel:
+            struct_res = validate_workflow_structure(target_file)
+            if not struct_res.success:
+                all_passed = False
+                objective_results.append(
+                    ObjectiveResult(
+                        id=obj_id,
+                        title=obj_title,
+                        passed=False,
+                        message=f"Workflow structure invalid: {struct_res.message}",
+                        hint=obj_hint or "Check workflow schema: ensure 'on' and 'jobs' with valid runners are declared.",
+                    )
+                )
+                continue
 
         # Check starter diff if defined
         starter_content = lab.initial_files.get(target_file_rel)

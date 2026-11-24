@@ -32,7 +32,8 @@ lab:
                 ref: ${{ github.event.pull_request.head.sha }}
 
             - name: Log Issue Title
-              run: echo "Processing PR title: ${{ github.event.pull_request.title }}"
+              run: |
+                echo "Processing PR title: ${{ github.event.pull_request.title }}"
 
             - name: Configure Cloud
               env:
@@ -62,8 +63,8 @@ lab:
           message: "run: script must not inline ${{ github.event... }} directly into shell."
 
     - id: "enable-oidc-permissions"
-      title: "Declare permissions for keyless cloud auth (id-token: write and contents: read)"
-      hint: "Add permissions: id-token: write and contents: read to eliminate static cloud keys."
+      title: "Declare OIDC permissions (id-token: write, contents: read) and eliminate static AWS keys"
+      hint: "Add permissions: id-token: write and contents: read, and remove static AWS_KEY / AWS_ACCESS_KEY_ID."
       file: ".github/workflows/ci.yml"
       assertions:
         - path: "permissions.id-token"
@@ -72,3 +73,6 @@ lab:
         - path: "permissions.contents"
           equals: "read"
           message: "Workflow must explicitly declare 'permissions.contents: read'."
+        - path: "jobs.deploy.steps.2.env.AWS_KEY"
+          absent: true
+          message: "Static secret AWS_ACCESS_KEY_ID must be eliminated from step environment."

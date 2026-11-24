@@ -7,7 +7,7 @@ lab:
   briefing: |
     As platform engineer, your task is to author a reusable Composite Action in '.github/actions/security-scan/action.yml'
     from scratch and invoke it from a caller workflow in '.github/workflows/verify.yml'.
-    The action must declare typed inputs, execute composite steps with bash shell, and inherit caller secrets.
+    The action must declare typed inputs, execute composite steps with bash shell, and receive secret tokens via action inputs.
 
   simulated_log: |
     2026-11-23T21:40:01.100Z ##[group]Run platform-tooling-audit
