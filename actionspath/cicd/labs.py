@@ -378,7 +378,7 @@ def run_boss_lab(module_num: int) -> bool:
             return True
 
         # Interactive action prompt
-        console.print("[bold yellow]Actions:[/bold yellow] [e] Edit files  [d] Diff changes  [v] Verify  [r] Reset  [q] Quit")
+        console.print("[bold yellow]Actions:[/bold yellow] \\[e] Edit files  \\[d] Diff changes  \\[v] Verify  \\[r] Reset  \\[q] Quit")
         choice = input("> ").strip().lower()
 
         if choice == "q":
@@ -419,7 +419,7 @@ def run_boss_lab(module_num: int) -> bool:
                         has_diff = True
                         console.print(Panel(diff_text, title=rel_path, border_style="yellow"))
             if not has_diff:
-                console.print("[yellow]No modifications made yet. Press [e] to edit.[/yellow]")
+                console.print("[yellow]No modifications made yet. Press \\[e] to edit.[/yellow]")
             input("\nPress Enter to return...")
         elif choice == "r":
             confirm = input("Reset all files in this lab back to starter state? (y/N): ").strip().lower()

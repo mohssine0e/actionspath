@@ -1739,7 +1739,7 @@ def render_hands_on_skip_message(
 
     console.print()
     console.print(f"[dim]Skipping {section_display} (Theory mode)[/dim]")
-    console.print("[dim]Enable hands-on mode from main menu [h] to practice in local workspaces[/dim]")
+    console.print("[dim]Enable hands-on mode from main menu \\[h] to practice in local workspaces[/dim]")
     console.print()
 
 

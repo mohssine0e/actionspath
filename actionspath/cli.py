@@ -1,5 +1,6 @@
 """CLI application for ActionsPath."""
 
+import time
 import typer
 from rich.panel import Panel
 from rich.text import Text
@@ -1095,7 +1096,7 @@ def interactive_scenarios(
 
             # Show command prompt
             console.print()
-            console.print("[hint]Enter command, [e]dit file, [r]eset, [d]iff, [v]erify:[/hint]")
+            console.print("[hint]Enter command, \\[e]dit file, \\[r]eset, \\[d]iff, \\[v]erify:[/hint]")
             user_input = get_command_input()
 
             # Handle navigation and editor keys
@@ -1135,7 +1136,7 @@ def interactive_scenarios(
                             message=result.message or "Workflow still has syntax issues or unmet requirements.",
                             console=console,
                         )
-                        console.print("[hint]Press [e] to re-open editor, or [d] to see current diff.[/hint]")
+                        console.print("[hint]Press \\[e] to re-open editor, or \\[d] to see current diff.[/hint]")
                 else:
                     console.print("[warning]No workflow file found for this scenario.[/warning]")
                 continue
@@ -1992,13 +1993,13 @@ def prompt_hands_on_mode_choice():
             console.print()
             console.print("[success]Full Experience mode enabled![/success]")
             console.print("[dim]Make sure you have Git and GitHub CLI set up.[/dim]")
-            console.print("[dim]You can check your setup from the main menu [e].[/dim]")
+            console.print("[dim]You can check your setup from the main menu \\[e].[/dim]")
             break
         elif user_input == "2":
             set_hands_on_mode(False)
             console.print()
             console.print("[info]Theory Only mode enabled.[/info]")
-            console.print("[dim]You can enable hands-on mode later from the main menu [h].[/dim]")
+            console.print("[dim]You can enable hands-on mode later from the main menu \\[h].[/dim]")
             break
         else:
             console.print("[warning]Please enter 1 or 2[/warning]")
