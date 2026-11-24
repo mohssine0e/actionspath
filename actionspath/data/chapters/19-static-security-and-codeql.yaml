@@ -114,16 +114,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Repository Code Files for Scanning"
   instructions: |
-    **What we're doing:** Inspect the Python source files in the project workspace.
+    Inspect the Python source files in the project workspace.
 
-    **Why this matters:** CodeQL languages must match the codebase files.
-
-    **The command pattern:**
-    ```
-    find actionspath -name "*.py" | head -n 3
-    ```
-
-    Run this command:
+    This is useful so as to ensure CodeQL matrix languages accurately match repository source files.
   command_hint: "find actionspath -name \"*.py\" | head -n 3"
   validation:
     type: "command_output"

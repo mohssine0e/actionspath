@@ -114,11 +114,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Git Commits"
   instructions: |
-    **What we're doing:** Inspect the commit history in your workspace.
+    Inspect the commit history in your workspace.
 
-    **Why this matters:** Each workflow run is tied to a specific Git commit SHA (`github.sha`).
-
-    Run this command:
+    This is useful to view the commit history, as each workflow run is tied to a specific Git commit SHA (`github.sha`).
   command_hint: "git log -n 1 --oneline"
   validation:
     type: "command_output"

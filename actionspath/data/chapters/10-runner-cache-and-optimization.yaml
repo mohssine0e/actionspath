@@ -108,16 +108,9 @@ command_practice:
 - id: "cmd-01"
   title: "Calculate File Hash for Cache Key"
   instructions: |
-    **What we're doing:** Generate a SHA-256 hash of a configuration file.
+    Generate a SHA-256 hash of a configuration file.
 
-    **Why this matters:** In workflows, `hashFiles('pyproject.toml')` calculates this exact checksum to invalidate the cache when dependencies change.
-
-    **The command pattern:**
-    ```
-    sha256sum pyproject.toml | cut -d ' ' -f 1
-    ```
-
-    Run this command:
+    This is useful to understand how `hashFiles('pyproject.toml')` creates cache keys that invalidate whenever dependencies change.
   command_hint: "sha256sum pyproject.toml | cut -d ' ' -f 1"
   validation:
     type: "command_output"

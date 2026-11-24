@@ -163,16 +163,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Installed Python Version"
   instructions: |
-    **What we're doing:** Inspect the currently active Python interpreter version.
+    Inspect the currently active Python interpreter version.
 
-    **Why this matters:** In CI matrix jobs, setup actions like `actions/setup-python` switch the active interpreter version dynamically per matrix row.
-
-    **The command pattern:**
-    ```
-    python3 --version
-    ```
-
-    Run this command:
+    This is useful to confirm the runtime environment, mirroring how matrix jobs switch interpreter versions dynamically per matrix row.
   command_hint: "python3 --version"
   validation:
     type: "command_output"

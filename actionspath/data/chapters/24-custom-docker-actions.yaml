@@ -93,16 +93,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Docker Container Environment"
   instructions: |
-    **What we're doing:** Inspect the runner kernel to verify Linux container support.
+    Inspect the runner kernel to verify Linux container support.
 
-    **Why this matters:** Docker container actions require a Linux kernel environment.
-
-    **The command pattern:**
-    ```
-    uname -s
-    ```
-
-    Run this command:
+    This is useful because Docker container actions require a Linux host kernel to execute.
   command_hint: "uname -s"
   validation:
     type: "command_output"

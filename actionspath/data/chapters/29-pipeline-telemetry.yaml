@@ -76,16 +76,9 @@ command_practice:
 - id: "cmd-01"
   title: "Measure Command Execution Duration"
   instructions: |
-    **What we're doing:** Inspect the standard bash timing utility.
+    Inspect the standard bash timing utility.
 
-    **Why this matters:** In telemetry collection, shell timers record step durations.
-
-    **The command pattern:**
-    ```
-    time echo "Telemetry timing check"
-    ```
-
-    Run this command:
+    This is useful to measure step execution duration for pipeline performance metrics and SLO tracking.
   command_hint: "time echo \"Telemetry timing check\""
   validation:
     type: "command_output"

@@ -130,16 +130,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Directory Contents for Packaging"
   instructions: |
-    **What we're doing:** Inspect the current files ready for artifact archiving.
+    Inspect the current files ready for artifact archiving.
 
-    **Why this matters:** In CI pipelines, you verify output folders before calling `upload-artifact`.
-
-    **The command pattern:**
-    ```
-    ls -la
-    ```
-
-    Run this command:
+    This is useful to verify build output directories before passing them to `actions/upload-artifact@v4`.
   command_hint: "ls -la"
   validation:
     type: "command_output"

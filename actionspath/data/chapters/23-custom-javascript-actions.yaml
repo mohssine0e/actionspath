@@ -100,16 +100,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Node.js Runtime Version"
   instructions: |
-    **What we're doing:** Inspect the Node.js runtime version available in your environment.
+    Inspect the Node.js runtime version available in your environment.
 
-    **Why this matters:** GitHub Actions runners execute JavaScript actions using Node 20.
-
-    **The command pattern:**
-    ```
-    node -v
-    ```
-
-    Run this command:
+    This is useful to verify compatibility, as GitHub Actions runners execute custom JavaScript actions on Node 20.
   command_hint: "node -v"
   validation:
     type: "command_output"

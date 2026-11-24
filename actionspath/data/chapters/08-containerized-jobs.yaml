@@ -106,16 +106,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Current Working Directory"
   instructions: |
-    **What we're doing:** Inspect the current working directory path.
+    Inspect the current working directory path.
 
-    **Why this matters:** Inside GitHub Actions job containers, the runner mounts your workspace at `/github/workspace`.
-
-    **The command pattern:**
-    ```
-    pwd
-    ```
-
-    Run this command:
+    This is useful to confirm workspace mounting, mirroring how containerized jobs mount code at `/github/workspace`.
   command_hint: "pwd"
   validation:
     type: "command_output"

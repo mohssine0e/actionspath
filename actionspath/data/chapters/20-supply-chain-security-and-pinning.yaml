@@ -94,16 +94,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Full Commit SHA for Pinning"
   instructions: |
-    **What we're doing:** Inspect your current Git commit's full 40-character SHA.
+    Inspect your current Git commit's full 40-character SHA.
 
-    **Why this matters:** Full 40-character SHAs are the exact strings used when pinning external GitHub Actions.
-
-    **The command pattern:**
-    ```
-    git rev-parse HEAD
-    ```
-
-    Run this command:
+    This is useful because full immutable commit SHAs are required when pinning external GitHub Actions against supply-chain attacks.
   command_hint: "git rev-parse HEAD"
   validation:
     type: "command_output"

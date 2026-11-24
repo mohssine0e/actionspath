@@ -487,6 +487,21 @@ def render_navigation_help(
     console.print(nav_text)
 
 
+def _clean_practice_instructions(instructions: str) -> str:
+    """Normalize practice instructions by removing rigid labels and trailing prompts."""
+    if not instructions:
+        return ""
+    import re
+
+    # Strip rigid labels like "**What we're doing:**"
+    text = re.sub(r"\*\*What we(?:'re| are) doing:\*\*\s*", "", instructions, flags=re.IGNORECASE)
+    # Convert any lingering "**Why this matters:**" to natural phrasing
+    text = re.sub(r"\*\*Why this matters:\*\*\s*", "This is useful: ", text, flags=re.IGNORECASE)
+    # Strip trailing redundant "Run this command:" prompts
+    text = re.sub(r"\n+Run this command:\s*$", "", text, flags=re.IGNORECASE)
+    return text.strip()
+
+
 def render_command_practice(
     practice: dict[str, Any],
     index: int,
@@ -505,7 +520,8 @@ def render_command_practice(
         console = get_console()
 
     title = practice.get("title", "Untitled Practice")
-    instructions = practice.get("instructions", "")
+    raw_instructions = practice.get("instructions", "")
+    instructions = _clean_practice_instructions(raw_instructions)
     command_hint = practice.get("command_hint", "")
     points = practice.get("points", 0)
 

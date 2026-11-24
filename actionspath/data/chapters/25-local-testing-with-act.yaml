@@ -95,16 +95,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect act CLI Tooling"
   instructions: |
-    **What we're doing:** Inspect the `act` CLI runner availability in your terminal.
+    Inspect the `act` CLI runner availability in your terminal.
 
-    **Why this matters:** `act` is the standard tool for local GitHub Actions execution.
-
-    **The command pattern:**
-    ```
-    which act 2>/dev/null || echo "act runner CLI"
-    ```
-
-    Run this command:
+    This is useful to verify the local testing harness, enabling rapid workflow debugging without pushing commits.
   command_hint: "which act 2>/dev/null || echo \"act runner CLI\""
   validation:
     type: "command_output"

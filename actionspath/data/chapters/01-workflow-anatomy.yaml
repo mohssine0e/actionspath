@@ -114,11 +114,9 @@ command_practice:
 - id: "cmd-01"
   title: "Verify Git Repository Status"
   instructions: |
-    **What we're doing:** Inspect the current state of your local Git practice workspace.
+    Inspect the current state of your local Git practice workspace.
 
-    **Why this matters:** In GitHub Actions, workflows run in the context of a Git checkout. Checking `git status` helps verify your workspace and branch are clean.
-
-    Run this command:
+    This is useful to verify that your workspace and branch are clean before creating workflows, as GitHub Actions executes within a Git checkout.
   command_hint: "git status"
   validation:
     type: "command_output"
@@ -129,11 +127,9 @@ command_practice:
 - id: "cmd-02"
   title: "Check Workflow Directory Structure"
   instructions: |
-    **What we're doing:** Verify the `.github/workflows` directory exists in the workspace.
+    Verify that the `.github/workflows` directory exists in the workspace.
 
-    **Why this matters:** GitHub only recognizes workflow files located inside `.github/workflows/`. Files placed anywhere else are ignored.
-
-    Run this command:
+    This is useful because GitHub only recognizes workflow files placed inside `.github/workflows/`—files anywhere else are ignored.
   command_hint: "ls -la .github/workflows"
   validation:
     type: "command_output"

@@ -112,16 +112,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Webhook Payload Formatting"
   instructions: |
-    **What we're doing:** Inspect JSON formatting for webhook alerts.
+    Inspect JSON formatting for webhook alerts.
 
-    **Why this matters:** Slack and Discord integrations send JSON payloads to incoming webhook URLs.
-
-    **The command pattern:**
-    ```
-    echo '{"text": "CI Status: Success"}'
-    ```
-
-    Run this command:
+    This is useful so as to format alert payloads accepted by Slack and Discord incoming webhook endpoints.
   command_hint: "echo '{\"text\": \"CI Status: Success\"}'"
   validation:
     type: "command_output"

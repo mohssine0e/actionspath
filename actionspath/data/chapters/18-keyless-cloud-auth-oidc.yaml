@@ -135,16 +135,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect AWS CLI Tooling in Environment"
   instructions: |
-    **What we're doing:** Inspect the AWS command-line interface availability.
+    Inspect the AWS command-line interface availability.
 
-    **Why this matters:** Runner environments include cloud CLIs ready to use after OIDC authentication.
-
-    **The command pattern:**
-    ```
-    which aws || echo "Ready for cloud CLI"
-    ```
-
-    Run this command:
+    This is useful to verify installed cloud CLIs that authenticate keylessly via OIDC tokens without long-lived credentials.
   command_hint: "which aws || echo 'Ready for cloud CLI'"
   validation:
     type: "command_output"

@@ -93,16 +93,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect ActionsPath Mastery Milestone"
   instructions: |
-    **What we're doing:** Run the ActionsPath CLI version command to celebrate completing the 30-chapter curriculum.
+    Run the ActionsPath CLI help command to review all available curriculum commands.
 
-    **Why this matters:** You have completed the full curriculum from absolute beginner to enterprise CI/CD mastery!
-
-    **The command pattern:**
-    ```
-    actionspath --help
-    ```
-
-    Run this command:
+    This is useful to celebrate completing the full 30-chapter curriculum from foundations to enterprise CI/CD mastery!
   command_hint: "actionspath --help"
   validation:
     type: "command_output"

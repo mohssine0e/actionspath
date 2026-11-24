@@ -97,16 +97,9 @@ command_practice:
 - id: "cmd-01"
   title: "Verify Deployment Target Environment Format"
   instructions: |
-    **What we're doing:** Inspect the target environment string format.
+    Inspect the target environment string format.
 
-    **Why this matters:** In workflows, environments are passed to deployment CLIs.
-
-    **The command pattern:**
-    ```
-    echo "Target: production"
-    ```
-
-    Run this command:
+    This is useful to ensure deployment targets match protected environment rules configured in repository settings.
   command_hint: "echo 'Target: production'"
   validation:
     type: "command_output"

@@ -109,16 +109,9 @@ command_practice:
 - id: "cmd-01"
   title: "Check Port Listening Pattern"
   instructions: |
-    **What we're doing:** Inspect the standard localhost IP pattern used to reach service containers.
+    Inspect the standard localhost IP pattern used to reach service containers.
 
-    **Why this matters:** On host runners, service containers bind their mapped ports to 127.0.0.1 (localhost).
-
-    **The command pattern:**
-    ```
-    echo "Connecting to localhost:5432"
-    ```
-
-    Run this command:
+    This is useful because host runners access linked service containers directly via mapped ports on `localhost`.
   command_hint: "echo 'Connecting to localhost:5432'"
   validation:
     type: "command_output"

@@ -118,16 +118,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Traffic Weight Flag Syntax"
   instructions: |
-    **What we're doing:** Inspect traffic percentage parameter patterns.
+    Inspect traffic percentage parameter patterns.
 
-    **Why this matters:** Routing proxies (Envoy, Traefik, AWS ALB) accept percentage weights.
-
-    **The command pattern:**
-    ```
-    echo "--weight-canary 10 --weight-stable 90"
-    ```
-
-    Run this command:
+    This is useful to configure traffic shifting weights on reverse proxies and load balancers during canary rollouts.
   command_hint: "echo \"--weight-canary 10 --weight-stable 90\""
   validation:
     type: "command_output"

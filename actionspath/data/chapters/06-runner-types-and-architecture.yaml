@@ -113,16 +113,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Runner Kernel and Architecture"
   instructions: |
-    **What we're doing:** Inspect your current OS kernel and machine architecture.
+    Inspect your current OS kernel and machine architecture.
 
-    **Why this matters:** In cross-platform workflows, verifying the runner architecture prevents running x86 binaries on ARM or vice-versa.
-
-    **The command pattern:**
-    ```
-    uname -sm
-    ```
-
-    Run this command:
+    This is useful to verify runner architecture in cross-platform workflows, preventing x86 binaries from running on ARM or vice-versa.
   command_hint: "uname -sm"
   validation:
     type: "command_output"

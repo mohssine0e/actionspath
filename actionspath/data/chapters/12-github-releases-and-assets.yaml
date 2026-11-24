@@ -117,16 +117,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Local Git Tags"
   instructions: |
-    **What we're doing:** List the Git tags present in the local repository.
+    List the Git tags present in the local repository.
 
-    **Why this matters:** In release automation, tags trigger workflows and define version numbers.
-
-    **The command pattern:**
-    ```
-    git tag -l
-    ```
-
-    Run this command:
+    This is useful because release automation workflows trigger on tag pushes and extract version numbers from `${{ github.ref_name }}`.
   command_hint: "git tag -l"
   validation:
     type: "command_output"

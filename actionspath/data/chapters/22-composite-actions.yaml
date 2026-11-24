@@ -108,16 +108,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Action Definition File Name"
   instructions: |
-    **What we're doing:** Inspect action metadata file conventions.
+    Inspect action metadata file conventions.
 
-    **Why this matters:** GitHub Actions looks for `action.yml` or `action.yaml` in the action directory.
-
-    **The command pattern:**
-    ```
-    echo "Standard Action Metadata: action.yml"
-    ```
-
-    Run this command:
+    This is useful because composite actions require an `action.yml` or `action.yaml` manifest in their root directory.
   command_hint: "echo 'Standard Action Metadata: action.yml'"
   validation:
     type: "command_output"

@@ -115,16 +115,9 @@ command_practice:
 - id: "cmd-01"
   title: "Check Current Git Branch"
   instructions: |
-    **What we're doing:** Inspect your current workspace branch name.
+    Inspect your current workspace branch name.
 
-    **Why this matters:** In workflows, `${{ github.ref_name }}` resolves to the current branch name (e.g. `main`).
-
-    **The command pattern:**
-    ```
-    git branch --show-current
-    ```
-
-    Run this command:
+    This is useful so as to verify the active branch, which resolves dynamically to `${{ github.ref_name }}` in workflow expressions.
   command_hint: "git branch --show-current"
   validation:
     type: "command_output"

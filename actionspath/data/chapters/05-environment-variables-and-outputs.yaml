@@ -140,16 +140,9 @@ command_practice:
 - id: "cmd-01"
   title: "Write Variable to Mock Environment"
   instructions: |
-    **What we're doing:** Append a variable key-value pair to a simulated environment file.
+    Append a variable key-value pair to a simulated environment file.
 
-    **Why this matters:** In GitHub Actions runners, writing `KEY=value` to `"$GITHUB_ENV"` is how dynamic values are passed forward.
-
-    **The command pattern:**
-    ```
-    echo "ENV_DEMO=active" >> /tmp/test_env
-    ```
-
-    Run this command:
+    This is useful to practice how dynamic values are passed forward by writing `KEY=value` to `"$GITHUB_ENV"` on runners.
   command_hint: "echo 'ENV_DEMO=active' >> /tmp/test_env"
   validation:
     type: "command_output"

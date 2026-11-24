@@ -104,16 +104,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Current Git Reference"
   instructions: |
-    **What we're doing:** Inspect the current Git reference name.
+    Inspect the current Git reference name.
 
-    **Why this matters:** In concurrency groups, `${{ github.ref }}` or `${{ github.head_ref }}` partitions concurrency by branch.
-
-    **The command pattern:**
-    ```
-    git symbolic-ref --short HEAD
-    ```
-
-    Run this command:
+    This is useful so as to partition workflow runs into per-branch concurrency groups using `${{ github.ref }}`.
   command_hint: "git symbolic-ref --short HEAD"
   validation:
     type: "command_output"

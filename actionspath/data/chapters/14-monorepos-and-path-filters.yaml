@@ -130,16 +130,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Changed Files in Workspace"
   instructions: |
-    **What we're doing:** Inspect the changed files status in your local git workspace.
+    Inspect the changed files status in your local git workspace.
 
-    **Why this matters:** Path filters compare changed file paths against glob patterns.
-
-    **The command pattern:**
-    ```
-    git status --short
-    ```
-
-    Run this command:
+    This is useful to see modified paths, mirroring how path filters evaluate file changes against glob patterns to trigger targeted jobs.
   command_hint: "git status --short"
   validation:
     type: "command_output"

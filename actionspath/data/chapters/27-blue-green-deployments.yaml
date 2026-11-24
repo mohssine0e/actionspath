@@ -117,16 +117,9 @@ command_practice:
 - id: "cmd-01"
   title: "Simulate Health Check Probe Pattern"
   instructions: |
-    **What we're doing:** Inspect the standard curl health check retry flags.
+    Inspect the standard curl health check retry flags.
 
-    **Why this matters:** In Blue-Green workflows, curl tests the idle slot with `--fail` and `--retry`.
-
-    **The command pattern:**
-    ```
-    echo "curl --fail --retry 3 http://localhost:8080/health"
-    ```
-
-    Run this command:
+    This is useful to validate the standby deployment slot with `--fail` and `--retry` before traffic cutover.
   command_hint: "echo \"curl --fail --retry 3 http://localhost:8080/health\""
   validation:
     type: "command_output"

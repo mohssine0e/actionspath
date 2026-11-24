@@ -114,16 +114,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Package Metadata Configuration"
   instructions: |
-    **What we're doing:** Inspect your package definition in `pyproject.toml`.
+    Inspect your package definition in `pyproject.toml`.
 
-    **Why this matters:** Package builders parse project metadata files to determine package name and version before publishing.
-
-    **The command pattern:**
-    ```
-    grep -E "(name|version)" pyproject.toml | head -n 2
-    ```
-
-    Run this command:
+    This is useful to verify project metadata, as package builders extract package names and versions directly from this file.
   command_hint: "grep -E \"(name|version)\" pyproject.toml | head -n 2"
   validation:
     type: "command_output"

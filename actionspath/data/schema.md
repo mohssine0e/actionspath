@@ -78,8 +78,8 @@ concepts:
 
 ## Command Practice Section (Optional)
 
-Hands-on exercises where learners run kubectl commands. Each practice includes:
-- Clear instructions with "why this matters"
+Hands-on exercises where learners run shell/CI commands. Each practice includes:
+- Clear direct task instruction and context (e.g. "This is useful to...")
 - Command hints with memory tricks
 - Validation to check success
 - Points awarded on completion
@@ -87,17 +87,12 @@ Hands-on exercises where learners run kubectl commands. Each practice includes:
 ```yaml
 command_practice:
   - id: "cmd-01"                      # Unique identifier within chapter
-    title: "Check Cluster Info"       # Display title
+    title: "Verify Git Status"        # Display title
     instructions: |                   # Markdown instructions
-      **What we're doing:** Verify your Kubernetes cluster is running.
+      Inspect the current state of your local Git practice workspace.
 
-      **Why this matters:** Before deploying apps, you need to confirm
-      the cluster is healthy and accessible.
-
-      **Memory trick:** `cluster-info` = "tell me about the cluster"
-
-      Run this command:
-    command_hint: "kubectl cluster-info"
+      This is useful to verify that your workspace and branch are clean before creating workflows.
+    command_hint: "git status"
     why_this_command: |               # Optional: explain the command
       - `kubectl` = the CLI tool for Kubernetes
       - `cluster-info` = show cluster endpoint information
@@ -293,32 +288,16 @@ concepts:
 
 command_practice:
   - id: "cmd-01"
-    title: "List All Pods"
+    title: "Inspect Workflow Directory"
     instructions: |
-      **What we're doing:** See all pods in the default namespace.
+      Verify that the `.github/workflows` directory exists in the workspace.
 
-      **Why this matters:** This is the most common command you'll use!
-
-      **Memory trick:** `get` = "show me" | `pods` = what you want
-    command_hint: "kubectl get pods"
+      This is useful because GitHub only recognizes workflow files placed inside `.github/workflows/`.
+    command_hint: "ls -la .github/workflows"
     validation:
       type: "command_output"
-      command: "kubectl get pods"
-      expected_contains: "NAME"
-    points: 10
-
-  - id: "cmd-02"
-    title: "Describe a Pod"
-    instructions: |
-      **What we're doing:** Get detailed info about a specific pod.
-
-      **Why this matters:** When debugging, `describe` shows you events,
-      conditions, and configuration details.
-    command_hint: "kubectl describe pod <pod-name>"
-    validation:
-      type: "command_output"
-      command: "kubectl describe pod nginx"
-      expected_contains: "Name:"
+      command: "ls -la .github/workflows"
+      expected_contains: ".github"
     points: 10
 
 scenarios:

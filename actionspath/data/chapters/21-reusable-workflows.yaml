@@ -149,16 +149,9 @@ command_practice:
 - id: "cmd-01"
   title: "Inspect Workflow Directory Tree"
   instructions: |
-    **What we're doing:** Inspect the local repository workflow files.
+    Inspect the local repository workflow files.
 
-    **Why this matters:** Reusable workflows are stored inside `.github/workflows/`.
-
-    **The command pattern:**
-    ```
-    ls -la .github/workflows/ 2>/dev/null || echo "Standard workflow location: .github/workflows/"
-    ```
-
-    Run this command:
+    This is useful to locate callable child workflows, which must reside within `.github/workflows/`.
   command_hint: "ls -la .github/workflows/ 2>/dev/null || echo \"Standard workflow
     location: .github/workflows/\""
   validation:

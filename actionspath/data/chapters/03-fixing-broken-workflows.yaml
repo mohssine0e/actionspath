@@ -56,11 +56,9 @@ command_practice:
 - id: "cmd-01"
   title: "Verify Git Diff in Workspace"
   instructions: |
-    **What we're doing:** Run `git diff` to view working tree changes.
+    Run `git diff` to inspect your working tree changes.
 
-    **Why this matters:** When fixing broken workflows, checking your diff lets you verify exact edits before committing.
-
-    Run this command:
+    This is useful to verify exact YAML edits and indentation fixes before committing.
   command_hint: "git diff"
   validation:
     type: "command_output"
