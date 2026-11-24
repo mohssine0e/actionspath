@@ -103,3 +103,13 @@ class TestCLICommands:
             input="q\n",
         )
         assert result.returncode == 0
+
+    def test_actionspath_stats(self):
+        """Test that actionspath stats executes successfully."""
+        result = subprocess.run(
+            [sys.executable, "-m", "actionspath.cli", "stats"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "Level" in result.stdout or "Score" in result.stdout

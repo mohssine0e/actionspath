@@ -2339,5 +2339,36 @@ def lab(
     run_boss_lab(module)
 
 
+@app.command()
+def stats():
+    """Display course progress, score, level, streaks, and Boss Lab completions."""
+    console = get_console()
+    chapters = get_available_chapters()
+    course_chapters = [c for c in chapters if c > 0]
+    total_chapters = len(course_chapters)
+    if total_chapters > 0:
+        course_progress = get_course_progress(total_chapters)
+        all_content = get_all_chapter_content_counts()
+        time_remaining = estimate_course_time_remaining(all_content)
+        render_course_progress(
+            course_progress["completed_chapters"],
+            course_progress["total_chapters"],
+            time_remaining,
+            console,
+        )
+        console.print()
+
+    gamification = get_gamification_status()
+    render_player_status(
+        total_score=gamification["total_score"],
+        level=gamification["current_level"],
+        level_name=gamification["level_name"],
+        progress_to_next=gamification["progress_to_next"],
+        streak_current=gamification["streak"].get("current", 0),
+        streak_longest=gamification["streak"].get("longest", 0),
+        console=console,
+    )
+
+
 if __name__ == "__main__":
     app()
