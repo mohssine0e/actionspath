@@ -1,0 +1,64 @@
+lab:
+  module: 5
+  id: "boss-lab-05"
+  title: "The Internal Developer Platform (IDP)"
+  badge: "Platform Tooling Engineer"
+  scenario_type: "greenfield_build"
+  briefing: |
+    As platform engineer, your task is to author a reusable Composite Action in '.github/actions/security-scan/action.yml'
+    from scratch and invoke it from a caller workflow in '.github/workflows/verify.yml'.
+    The action must declare typed inputs, execute composite steps with bash shell, and inherit caller secrets.
+
+  simulated_log: |
+    2026-11-23T21:40:01.100Z ##[group]Run platform-tooling-audit
+    2026-11-23T21:40:02.321Z Checking .github/actions/security-scan/action.yml...
+    2026-11-23T21:40:03.001Z Action spec missing or incomplete.
+    2026-11-23T21:40:03.002Z ##[error]Composite action contract violated.
+
+  initial_files:
+    ".github/actions/security-scan/action.yml": |
+      name: 'Security Scan Action'
+      description: 'Run automated vulnerability scan'
+      # TODO: Author composite action definition here
+
+    ".github/workflows/verify.yml": |
+      name: Enterprise Verification
+      on: [push]
+
+      jobs:
+        audit:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            # TODO: Invoke local composite action here
+
+  objectives:
+    - id: "composite-runs-metadata"
+      title: "Define runs.using: composite and step shell: bash in action.yml"
+      hint: "Add runs: using: 'composite' and steps: - run: echo 'scanning' shell: bash."
+      file: ".github/actions/security-scan/action.yml"
+      assertions:
+        - path: "runs.using"
+          equals: "composite"
+          message: "Action must specify runs.using: composite."
+        - path: "runs.steps.0.shell"
+          equals: "bash"
+          message: "Composite action steps must explicitly declare 'shell: bash'."
+
+    - id: "composite-inputs"
+      title: "Declare 'token' input in action.yml"
+      hint: "Add inputs: token: description: 'Scan token' required: true."
+      file: ".github/actions/security-scan/action.yml"
+      assertions:
+        - path: "inputs.token"
+          exists: true
+          message: "Composite action must define a 'token' input."
+
+    - id: "caller-local-invocation"
+      title: "Invoke local composite action in verify.yml using ./.github/actions/security-scan"
+      hint: "Add step with uses: ./.github/actions/security-scan."
+      file: ".github/workflows/verify.yml"
+      assertions:
+        - path: "jobs.audit.steps"
+          has_step_using: ".github/actions/security-scan"
+          message: "Caller workflow must invoke local action with './.github/actions/security-scan'."

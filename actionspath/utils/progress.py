@@ -179,6 +179,40 @@ def clear_active_session() -> None:
         json.dump(progress, f, indent=2)
 
 
+def save_lab_completed(module_num: int) -> None:
+    """Record completion of a module Boss Lab."""
+    progress_dir = get_progress_dir()
+    progress_dir.mkdir(parents=True, exist_ok=True)
+    progress = load_progress()
+    if "labs" not in progress:
+        progress["labs"] = {}
+    progress["labs"][str(module_num)] = {"completed": True}
+    progress_file = get_progress_file()
+    with open(progress_file, "w") as f:
+        json.dump(progress, f, indent=2)
+
+
+def is_lab_completed(module_num: int) -> bool:
+    """Check if a module Boss Lab has been completed."""
+    progress = load_progress()
+    labs = progress.get("labs", {})
+    return bool(labs.get(str(module_num), {}).get("completed", False))
+
+
+def get_completed_labs() -> list[int]:
+    """Return list of completed module numbers (1-6)."""
+    progress = load_progress()
+    labs = progress.get("labs", {})
+    completed = []
+    for k, v in labs.items():
+        if isinstance(v, dict) and v.get("completed"):
+            try:
+                completed.append(int(k))
+            except ValueError:
+                pass
+    return sorted(completed)
+
+
 def get_chapter_section(chapter: int) -> str:
     """Get the current section for a chapter.
 

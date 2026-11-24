@@ -1440,6 +1440,13 @@ def render_player_status(
     # Score line with emoji
     score_text = f"💰 Score: {total_score:,} pts"
 
+    try:
+        from actionspath.utils.progress import get_completed_labs
+        completed_labs = get_completed_labs()
+        labs_text = f"👑 Boss Labs: {len(completed_labs)}/6 cleared"
+    except Exception:
+        labs_text = ""
+
     # Progress bar to next level
     if needed_for_next > 0:
         progress_bar = ProgressBar(
@@ -1472,10 +1479,10 @@ def render_player_status(
         Text(streak_text, style="cyan"),
     )
 
-    # Row 2: Score
+    # Row 2: Score and Boss Labs
     content.add_row(
         Text(score_text, style="dim"),
-        Text(""),
+        Text(labs_text, style="bold magenta" if completed_labs else "dim"),
     )
 
     # Row 3: Progress bar

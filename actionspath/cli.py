@@ -2062,9 +2062,19 @@ def browse_chapters():
 
                 console.print(f"    {status} [info]\\[{ch_num}][/info] {title}")
 
+            # Boss Lab indicator for this module
+            try:
+                mod_idx = module.get("id") or (modules.index(module) + 1)
+                from actionspath.utils.progress import is_lab_completed
+                lab_done = is_lab_completed(mod_idx)
+                lab_icon = "[bold green]✓[/bold green]" if lab_done else "[bold yellow]👑[/bold yellow]"
+                console.print(f"    {lab_icon} [bold magenta]\\[lab {mod_idx}][/bold magenta] [bold yellow]Boss Lab {mod_idx}[/bold yellow]")
+            except Exception:
+                pass
+
             console.print()
 
-        console.print("[hint]Enter chapter number (or 'q' to go back):[/hint]")
+        console.print("[hint]Enter chapter number or 'lab <1-6>' (or 'q' to go back):[/hint]")
 
         try:
             user_input = input("> ").strip().lower()
@@ -2073,6 +2083,17 @@ def browse_chapters():
 
         if user_input == "q" or user_input == "":
             return
+
+        if user_input.startswith("lab") or user_input.startswith("l"):
+            parts = user_input.replace("lab", "").replace("l", "").strip()
+            try:
+                lab_mod = int(parts)
+                if 1 <= lab_mod <= 6:
+                    from actionspath.cicd.labs import run_boss_lab
+                    run_boss_lab(lab_mod)
+                    continue
+            except ValueError:
+                pass
 
         try:
             selected = int(user_input)
@@ -2289,6 +2310,18 @@ def scenarios(
 ):
     """Jump directly to debugging scenarios (power user command)."""
     run_chapter(chapter, "scenarios")
+
+
+@app.command()
+def lab(
+    module: int = typer.Argument(..., help="Module number for Boss Lab (1-6)"),
+):
+    """Launch an end-of-module capstone Boss Lab."""
+    from actionspath.cicd.labs import run_boss_lab
+    if module < 1 or module > 6:
+        get_console().print("[bold red]Module number must be between 1 and 6.[/bold red]")
+        return
+    run_boss_lab(module)
 
 
 if __name__ == "__main__":

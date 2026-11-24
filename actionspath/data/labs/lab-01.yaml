@@ -1,0 +1,71 @@
+lab:
+  module: 1
+  id: "boss-lab-01"
+  title: "The Black Friday Incident"
+  badge: "Certified CI Operator"
+  scenario_type: "log_detective"
+  briefing: |
+    It is 2:00 AM on Black Friday. Acme Retail's deployment pipeline crashed after an emergency PR was opened.
+    The simulated runner log below shows circular dependency and nested expression failures, while concurrent
+    runs are hitting GitHub concurrency limits. Investigate and restore pipeline integrity.
+
+  simulated_log: |
+    2026-11-23T20:14:02.128Z ##[group]Run actions/checkout@v4
+    2026-11-23T20:14:03.441Z ##[error]Invalid workflow file: .github/workflows/ci.yml
+    2026-11-23T20:14:04.002Z ##[error]The workflow is not valid. Circular dependency detected:
+    2026-11-23T20:14:04.003Z 'build' needs 'test', but 'test' needs 'build'.
+    2026-11-23T20:14:04.010Z ##[error]Process completed with exit code 1.
+
+  initial_files:
+    ".github/workflows/ci.yml": |
+      name: Production CI
+      on: [push, pull_request]
+
+      jobs:
+        build:
+          needs: test
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - run: echo "${{ format('Build {0}', ${{ github.sha }}) }}"
+
+        test:
+          needs: build
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+            - run: npm test
+
+  objectives:
+    - id: "fix-duplicate-triggers"
+      title: "Scope push and pull_request triggers to prevent duplicate runs on main"
+      hint: "Define on.push.branches: [main] and on.pull_request.branches: [main]."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "on.push.branches"
+          contains: "main"
+          message: "The 'push' trigger must be scoped to the 'main' branch."
+        - path: "on.pull_request.branches"
+          contains: "main"
+          message: "The 'pull_request' trigger must be scoped to the 'main' branch."
+
+    - id: "resolve-dag-cycle"
+      title: "Break the circular dependency so build runs before test"
+      hint: "Remove 'needs: test' from the 'build' job; keep 'needs: build' in 'test'."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.build.needs"
+          absent: true
+          message: "Job 'build' must not depend on 'test' (must have no 'needs:')."
+        - path: "jobs.test.needs"
+          equals: "build"
+          message: "Job 'test' must declare 'needs: build'."
+
+    - id: "fix-nested-expression"
+      title: "Fix invalid nested expression syntax on build step"
+      hint: "Inside format(), variables are referenced bare: format('Build {0}', github.sha)."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.build.steps.1.run"
+          matches_regex: "format\\('Build \\{0\\}',\\s*github\\.sha\\)"
+          message: "Expression must be format('Build {0}', github.sha) without nested ${{ }}."

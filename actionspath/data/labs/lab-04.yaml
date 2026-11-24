@@ -1,0 +1,74 @@
+lab:
+  module: 4
+  id: "boss-lab-04"
+  title: "The Red-Team Security Audit"
+  badge: "DevSecOps Architect"
+  scenario_type: "security_audit"
+  briefing: |
+    A security penetration audit uncovered 3 severe vulnerabilities in Acme's production workflow.
+    Although all checks pass green on GitHub, attackers can exfiltrate AWS deployment credentials
+    via PR checkout exploits, script injection, and static credentials. Patch all 3 vulnerabilities.
+
+  simulated_log: |
+    2026-11-23T21:30:00.010Z ##[warning]Vulnerability Alert: pull_request_target with untrusted head ref checkout
+    2026-11-23T21:30:00.011Z ##[warning]Vulnerability Alert: Inline ${{ github.event.issue.title }} in run: shell step
+    2026-11-23T21:30:00.012Z ##[warning]Vulnerability Alert: Permanent static IAM keys detected (AWS_ACCESS_KEY_ID)
+    2026-11-23T21:30:00.015Z Audit score: 0 / 100 (CRITICAL RISKS DETECTED)
+
+  initial_files:
+    ".github/workflows/ci.yml": |
+      name: Production Release
+      on:
+        pull_request_target:
+          branches: [main]
+
+      jobs:
+        deploy:
+          runs-on: ubuntu-latest
+          steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+              with:
+                ref: ${{ github.event.pull_request.head.sha }}
+
+            - name: Log Issue Title
+              run: echo "Processing PR title: ${{ github.event.pull_request.title }}"
+
+            - name: Configure Cloud
+              env:
+                AWS_KEY: ${{ secrets.AWS_ACCESS_KEY_ID }}
+              run: ./deploy-to-aws.sh --key "$AWS_KEY"
+
+  objectives:
+    - id: "fix-pwnrequest-checkout"
+      title: "Eliminate PwnRequest: remove untrusted head.sha ref from pull_request_target"
+      hint: "Remove 'with.ref: ${{ github.event.pull_request.head.sha }}' so checkout targets base branch."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.deploy.steps.0.with.ref"
+          absent: true
+          message: "Step must NOT checkout untrusted pull_request.head.sha in pull_request_target."
+
+    - id: "fix-script-injection"
+      title: "Eliminate script injection: bind pull_request.title to step env instead of inline string"
+      hint: "Add step env: PR_TITLE: ${{ github.event.pull_request.title }} and run: echo \"$PR_TITLE\"."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.deploy.steps.1.env"
+          exists: true
+          message: "Must bind untrusted title to the step 'env:' block."
+        - path: "jobs.deploy.steps.1.run"
+          not_contains: "${{ github.event"
+          message: "run: script must not inline ${{ github.event... }} directly into shell."
+
+    - id: "enable-oidc-permissions"
+      title: "Declare permissions for keyless cloud auth (id-token: write and contents: read)"
+      hint: "Add permissions: id-token: write and contents: read to eliminate static cloud keys."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "permissions.id-token"
+          equals: "write"
+          message: "Workflow must declare 'permissions.id-token: write' for OIDC."
+        - path: "permissions.contents"
+          equals: "read"
+          message: "Workflow must explicitly declare 'permissions.contents: read'."

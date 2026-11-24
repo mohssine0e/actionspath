@@ -1,0 +1,71 @@
+lab:
+  module: 3
+  id: "boss-lab-03"
+  title: "The Multi-Service Monorepo Release"
+  badge: "Release Engineer"
+  scenario_type: "monorepo_orchestrator"
+  briefing: |
+    A monorepo hosts an 'api' backend and a 'frontend' web application. Every commit currently triggers
+    redundant builds for both services, causing race conditions in deployment and upload-artifact@v4 collisions.
+    Configure path filters, dynamic artifact names, and concurrency cancellation.
+
+  simulated_log: |
+    2026-11-23T21:15:10.002Z ##[group]Run actions/upload-artifact@v4
+    2026-11-23T21:15:11.450Z ##[error]Failed to CreateArtifact: An artifact with the name 'build-dist'
+    2026-11-23T21:15:11.451Z already exists on this workflow run. In upload-artifact@v4, artifact names
+    2026-11-23T21:15:11.452Z are strictly immutable.
+    2026-11-23T21:15:11.455Z ##[error]Process completed with exit code 1.
+
+  initial_files:
+    ".github/workflows/ci.yml": |
+      name: Monorepo Pipeline
+      on: [push, pull_request]
+
+      jobs:
+        build-services:
+          strategy:
+            matrix:
+              service: [api, frontend]
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+
+            - name: Compile Service
+              run: echo "Compiling ${{ matrix.service }}"
+
+            - name: Upload Artifact
+              uses: actions/upload-artifact@v4
+              with:
+                name: build-dist
+                path: dist/
+
+  objectives:
+    - id: "add-concurrency"
+      title: "Add top-level concurrency group with cancel-in-progress enabled for PRs"
+      hint: "Define concurrency: group: ${{ github.workflow }}-${{ github.ref }} and cancel-in-progress: true."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "concurrency.cancel-in-progress"
+          equals: true
+          message: "Workflow must set concurrency.cancel-in-progress: true."
+        - path: "concurrency.group"
+          exists: true
+          message: "Workflow must define a concurrency.group key."
+
+    - id: "scope-path-filters"
+      title: "Add paths filter to push trigger so changes to docs/ do not trigger builds"
+      hint: "Add push.paths-ignore: ['docs/**'] or push.paths: ['api/**', 'frontend/**']."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "on.push"
+          exists: true
+          message: "on.push must specify path filtering (paths or paths-ignore)."
+
+    - id: "namespace-artifact-name"
+      title: "Namespace artifact upload name dynamically with ${{ matrix.service }}"
+      hint: "Set with.name: dist-${{ matrix.service }} to eliminate @v4 collisions."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.build-services.steps.2.with.name"
+          matches_regex: "matrix\\.service"
+          message: "Artifact name must include ${{ matrix.service }} to prevent immutability collision."

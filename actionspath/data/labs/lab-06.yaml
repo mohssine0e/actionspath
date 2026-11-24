@@ -1,0 +1,67 @@
+lab:
+  module: 6
+  id: "boss-lab-06"
+  title: "Zero-Downtime Blue-Green & Canary Rollout"
+  badge: "Master CI/CD Architect"
+  scenario_type: "enterprise_architect"
+  briefing: |
+    Architect the mission-critical core banking deployment pipeline.
+    The rollout must route 10% traffic to canary, evaluate live error metrics, trigger automatic rollback
+    if any step fails, and only promote to 100% full rollout when all safety gates pass.
+
+  simulated_log: |
+    2026-11-23T21:50:00.001Z ##[group]Starting Progressive Rollout
+    2026-11-23T21:50:01.002Z Traffic weight: 10% (Canary Slot B)
+    2026-11-23T21:50:02.100Z Metric Check: Querying Prometheus error budget...
+    2026-11-23T21:50:03.000Z 5xx Error Spike Detected: 1.4% > threshold (0.1%)
+    2026-11-23T21:50:03.001Z ##[error]Safety Gate Tripped! Automatic Rollback required.
+
+  initial_files:
+    ".github/workflows/ci.yml": |
+      name: Core Banking Deployment
+      on:
+        push:
+          branches: [main]
+
+      jobs:
+        deploy:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+
+            - name: Shift 10% Canary Traffic
+              run: ./router.sh --canary 10
+
+            - name: Evaluate Canary Telemetry
+              run: ./check-metrics.sh --max-error-rate 0.001
+
+            - name: Promote Full Rollout
+              run: ./router.sh --canary 100
+
+  objectives:
+    - id: "canary-traffic-route"
+      title: "Route initial 10% traffic to canary slot"
+      hint: "Ensure step runs './router.sh --canary 10'."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.deploy.steps.1.run"
+          contains: "--canary 10"
+          message: "Must execute router step setting canary traffic to 10%."
+
+    - id: "automated-metric-gate"
+      title: "Evaluate live error rate threshold before promotion"
+      hint: "Include metric evaluation step checking --max-error-rate."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.deploy.steps.2.run"
+          contains: "check-metrics"
+          message: "Must include metric evaluation check."
+
+    - id: "automated-rollback-guard"
+      title: "Add automated rollback step guarded by 'if: failure()'"
+      hint: "Add a rollback step with if: failure() running ./router.sh --rollback."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.deploy.steps"
+          has_step_with_run: "rollback"
+          message: "Job must include a rollback step executing './router.sh --rollback' or similar."

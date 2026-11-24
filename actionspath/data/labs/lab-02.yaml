@@ -1,0 +1,64 @@
+lab:
+  module: 2
+  id: "boss-lab-02"
+  title: "The 5x Pipeline Accelerator"
+  badge: "Runner & Matrix Specialist"
+  scenario_type: "performance_audit"
+  briefing: |
+    Acme's engineering team complains that CI builds take over 25 minutes. Deep Docker image builds
+    routinely crash with 'ENOSPC: No space left on device', while multi-version testing runs sequentially.
+    Optimize this workflow by reclaiming disk space, adding a 2D test matrix, and implementing lockfile caching.
+
+  simulated_log: |
+    2026-11-23T21:05:12.890Z ##[group]Run docker build -t app:latest .
+    2026-11-23T21:08:45.102Z Step 14/22 : COPY vendor/ .
+    2026-11-23T21:09:01.442Z write /var/lib/docker/overlay2/...: no space left on device
+    2026-11-23T21:09:01.443Z ##[error]Error: Process completed with exit code 1 (ENOSPC).
+    2026-11-23T21:09:01.444Z Available disk space on runner: 12.4 MB / 75 GB
+
+  initial_files:
+    ".github/workflows/ci.yml": |
+      name: Heavy Build & Test
+      on: [push]
+
+      jobs:
+        slow-build:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v4
+
+            - name: Run Sequential Test
+              run: |
+                npm install
+                npm test
+
+  objectives:
+    - id: "add-disk-reclaim"
+      title: "Add a disk reclaim step removing pre-installed .NET and Android SDKs"
+      hint: "Add a step running: sudo rm -rf /usr/share/dotnet /usr/local/lib/android"
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.slow-build.steps"
+          has_step_with_run: "rm -rf"
+          message: "Job must include a disk cleanup step executing 'rm -rf /usr/share/dotnet' or similar."
+
+    - id: "configure-matrix"
+      title: "Parallelize test job into an OS and Node matrix with fail-fast disabled"
+      hint: "Add strategy.matrix with os: [ubuntu-latest, macos-latest] and node: [18, 20], and fail-fast: false."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.slow-build.strategy.matrix.os"
+          contains: "ubuntu-latest"
+          message: "Matrix strategy must include os with ubuntu-latest."
+        - path: "jobs.slow-build.strategy.fail-fast"
+          equals: false
+          message: "strategy.fail-fast must be set to false."
+
+    - id: "add-cache-step"
+      title: "Add actions/cache@v4 step caching ~/.npm with hashFiles('**/package-lock.json')"
+      hint: "Add step using actions/cache@v4 with key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}."
+      file: ".github/workflows/ci.yml"
+      assertions:
+        - path: "jobs.slow-build.steps"
+          has_step_using: "actions/cache"
+          message: "Must include an actions/cache step before npm install."

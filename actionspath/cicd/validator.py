@@ -626,13 +626,14 @@ def check_yaml_assertion(
     path = assertion.get("path", "")
     val, exists = resolve_yaml_path(workflow_data, path)
 
-    # 1. Existence check
-    if "exists" in assertion:
-        req_exists = assertion["exists"]
-        if req_exists and not exists:
-            return False, f"Required path '{path}' does not exist in workflow."
-        if not req_exists and exists:
+    # 1. Existence / Absence check
+    if assertion.get("absent") is True or ("exists" in assertion and not assertion["exists"]):
+        if exists:
             return False, f"Path '{path}' must not be present in workflow."
+        return True, f"Path '{path}' is absent as expected."
+
+    if "exists" in assertion and assertion["exists"] and not exists:
+        return False, f"Required path '{path}' does not exist in workflow."
 
     if not exists:
         return False, f"Path '{path}' not found in workflow."
@@ -642,6 +643,12 @@ def check_yaml_assertion(
         expected = assertion["equals"]
         if val != expected:
             return False, f"At '{path}': expected {expected!r}, got {val!r}."
+
+    # Regex pattern check
+    if "matches_regex" in assertion:
+        pattern = assertion["matches_regex"]
+        if not re.search(pattern, str(val)):
+            return False, f"At '{path}': value {val!r} does not match required pattern {pattern!r}."
 
     # 3. Contains check
     if "contains" in assertion:
