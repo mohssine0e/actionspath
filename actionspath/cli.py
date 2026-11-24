@@ -1412,7 +1412,7 @@ def interactive_quiz(
         answer = input("> ").strip()
 
         # Handle special inputs
-        if answer.lower() in ("q", "quit", "exit", "b", "back"):
+        if answer.lower() in ("q", "quit", "exit"):
             # Save state before quitting
             state = engine.get_state_for_persistence()
             save_quiz_state(
@@ -1770,13 +1770,13 @@ def run_chapter(chapter_num: int, start_section: str | None = None):
                     chapter_meta = chapter_data["chapter"]
                     section = "concepts"
                     start_from_last = False
-                    clear_active_session()
+                    set_active_session(next_chapter, "concepts")
                     continue
                 elif user_input == "m":
-                    clear_active_session()
+                    set_active_session(next_chapter, "concepts")
                     return  # Return to menu
                 else:
-                    clear_active_session()
+                    set_active_session(next_chapter, "concepts")
                     return  # Quit
             else:
                 # All chapters complete

@@ -639,7 +639,13 @@ def render_main_menu(
         ch = active_session["chapter"]
         section = active_session["section"]
         title = chapter_titles.get(ch, f"Chapter {ch}")
-        section_label = "Concepts" if section == "concepts" else "Practice"
+        section_labels = {
+            "concepts": "Concepts",
+            "practice": "Practice",
+            "scenarios": "Scenarios",
+            "quiz": "Quiz",
+        }
+        section_label = section_labels.get(section, section.capitalize())
         options.append(f"[info]\\[c][/info] Continue {title} → {section_label}")
 
     if 0 in chapters:

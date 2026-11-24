@@ -513,3 +513,62 @@ class TestInteractivePractice:
                 mock_console.return_value = MagicMock()
                 result = interactive_practice(1, practices, chapter_meta)
                 assert result == "quit"
+
+
+class TestInteractiveQuiz:
+    """Tests for interactive_quiz CLI flow."""
+
+    def test_quiz_option_b_is_not_treated_as_quit(self):
+        """Test that answer 'b' (Option B) is evaluated as answer, not quit."""
+        from actionspath.cli import interactive_quiz
+
+        quiz_data = {
+            "questions": [
+                {
+                    "type": "true_false",
+                    "question": "By default, multiple jobs run sequentially.",
+                    "correct": False,
+                    "points": 10,
+                }
+            ],
+            "passing_score": 10,
+        }
+        chapter_meta = {"number": 1, "title": "Test Chapter"}
+
+        # User enters 'b' for False (correct), then Enter to advance, then Enter at summary
+        inputs = iter(["b", "", ""])
+
+        with patch("builtins.input", side_effect=lambda *args: next(inputs)):
+            with patch("actionspath.cli.get_console") as mock_console:
+                mock_console.return_value = MagicMock()
+                with patch("actionspath.cli.clear_screen"):
+                    with patch("actionspath.cli.save_quiz_state"):
+                        with patch("actionspath.cli.clear_quiz_state"):
+                            result = interactive_quiz(1, quiz_data, chapter_meta)
+                            assert result == "completed"
+
+    def test_quiz_quits_on_q(self):
+        """Test that answer 'q' saves state and returns quit."""
+        from actionspath.cli import interactive_quiz
+
+        quiz_data = {
+            "questions": [
+                {
+                    "type": "true_false",
+                    "question": "By default, multiple jobs run sequentially.",
+                    "correct": False,
+                    "points": 10,
+                }
+            ],
+            "passing_score": 10,
+        }
+        chapter_meta = {"number": 1, "title": "Test Chapter"}
+
+        with patch("builtins.input", return_value="q"):
+            with patch("actionspath.cli.get_console") as mock_console:
+                mock_console.return_value = MagicMock()
+                with patch("actionspath.cli.clear_screen"):
+                    with patch("actionspath.cli.save_quiz_state") as mock_save:
+                        result = interactive_quiz(1, quiz_data, chapter_meta)
+                        assert result == "quit"
+                        assert mock_save.called

@@ -266,9 +266,25 @@ def mark_section_completed(chapter: int, section: str) -> None:
     elif section == "quiz":
         progress["chapters"][chapter_key]["quiz_completed"] = True
         progress["chapters"][chapter_key]["section"] = "completed"
-        # Clear active session since chapter is done
-        progress.pop("active_chapter", None)
-        progress.pop("active_section", None)
+        # Advance active session to next chapter if available
+        try:
+            from actionspath.content.loader import get_available_chapters
+            chapters = get_available_chapters()
+            if chapter in chapters:
+                idx = chapters.index(chapter)
+                if idx < len(chapters) - 1:
+                    next_chapter = chapters[idx + 1]
+                    progress["active_chapter"] = next_chapter
+                    progress["active_section"] = "concepts"
+                else:
+                    progress.pop("active_chapter", None)
+                    progress.pop("active_section", None)
+            else:
+                progress.pop("active_chapter", None)
+                progress.pop("active_section", None)
+        except Exception:
+            progress.pop("active_chapter", None)
+            progress.pop("active_section", None)
 
     progress_file = get_progress_file()
     with open(progress_file, "w") as f:

@@ -164,3 +164,45 @@ class TestClearProgress:
             # Should not raise
             clear_progress(1)
             clear_progress(None)
+
+
+class TestMarkSectionCompleted:
+    """Tests for mark_section_completed session progression."""
+
+    def test_quiz_completion_advances_to_next_chapter(self, tmp_path):
+        """Test that completing quiz sets active_chapter to next chapter concepts."""
+        from actionspath.utils.progress import mark_section_completed, load_progress
+
+        progress_dir = tmp_path / ".actionspath"
+        progress_dir.mkdir()
+        progress_file = progress_dir / "progress.json"
+
+        with patch("actionspath.utils.progress.get_progress_dir", return_value=progress_dir):
+            with patch("actionspath.utils.progress.get_progress_file", return_value=progress_file):
+                with patch("actionspath.content.loader.get_available_chapters", return_value=[0, 1, 2]):
+                    mark_section_completed(1, "quiz")
+
+                    data = load_progress()
+                    assert data["chapters"]["1"]["quiz_completed"] is True
+                    assert data["chapters"]["1"]["section"] == "completed"
+                    assert data["active_chapter"] == 2
+                    assert data["active_section"] == "concepts"
+
+    def test_quiz_completion_at_last_chapter_clears_active_session(self, tmp_path):
+        """Test that completing quiz on final chapter clears active session."""
+        from actionspath.utils.progress import mark_section_completed, load_progress
+
+        progress_dir = tmp_path / ".actionspath"
+        progress_dir.mkdir()
+        progress_file = progress_dir / "progress.json"
+
+        with patch("actionspath.utils.progress.get_progress_dir", return_value=progress_dir):
+            with patch("actionspath.utils.progress.get_progress_file", return_value=progress_file):
+                with patch("actionspath.content.loader.get_available_chapters", return_value=[1, 2]):
+                    mark_section_completed(2, "quiz")
+
+                    data = load_progress()
+                    assert data["chapters"]["2"]["quiz_completed"] is True
+                    assert data.get("active_chapter") is None
+                    assert data.get("active_section") is None
+
