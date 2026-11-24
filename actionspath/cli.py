@@ -702,6 +702,15 @@ def interactive_practice(
     # Set active session
     set_active_session(chapter_num, "practice")
 
+    # Initialize ephemeral practice workspace
+    wm = WorkspaceManager()
+    workspace_path = wm.create_workspace(
+        chapter_id=chapter_num,
+        name="practice",
+        init_git=True,
+        force_clean=False,
+    )
+
     # Get content counts for time estimation
     content_counts = get_chapter_content_counts(chapter_num)
 
@@ -731,6 +740,7 @@ def interactive_practice(
 
         # Show command prompt instead of navigation help
         hint = practice.get("command_hint", "")
+        console.print(f"[dim]📁 Workspace: {workspace_path}[/dim]")
         render_command_prompt(hint, console)
 
         # Get command input from user
@@ -833,8 +843,8 @@ def interactive_practice(
             input("Press Enter...")
             continue
 
-        # Execute the user's command
-        result = execute_command(user_command)
+        # Execute the user's command inside the isolated practice workspace
+        result = execute_command(user_command, cwd=workspace_path)
         command_history.append({
             "command": user_command,
             "output": result.output[:300] if result.output else "",

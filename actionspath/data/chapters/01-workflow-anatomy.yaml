@@ -134,7 +134,7 @@ command_practice:
   validation:
     type: "command_output"
     command: "ls -la .github/workflows"
-    expected_contains: "workflows"
+    expected_contains: "ci.yml"
   points: 10
 
 scenarios:

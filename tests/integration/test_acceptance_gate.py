@@ -250,3 +250,30 @@ jobs:
         ci_file.write_text(correct_workflow, encoding="utf-8")
         correct_res = validate_boss_lab(tmp_path, lab)
         assert correct_res.success, f"Correct solution failed: {[o.message for o in correct_res.objectives if not o.passed]}"
+
+
+class TestAcceptanceGatePractices:
+    """Every practice command across all chapters must execute cleanly in its workspace."""
+
+    def test_all_chapter_practice_commands_pass(self, tmp_path):
+        """Verify all 31 practice commands execute in the practice workspace and pass validation."""
+        from actionspath.cicd.workspace import WorkspaceManager
+        from actionspath.cicd.validator import execute_command, validate_output
+
+        wm = WorkspaceManager(base_dir=tmp_path / "workspaces")
+        ws = wm.create_workspace("acceptance", "practice", init_git=True, force_clean=True)
+
+        chapters_dir = Path("actionspath/data/chapters")
+        for cf in sorted(chapters_dir.glob("*.yaml")):
+            with open(cf, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+
+            practices = data.get("command_practice", [])
+            for p in practices:
+                cmd = p.get("command_hint")
+                exp = p.get("validation", {}).get("expected_contains", "")
+                result = execute_command(cmd, cwd=ws)
+                assert result.success, f"{cf.name} practice {p.get('id')} failed with output: {result.output}"
+                assert validate_output(result.output, exp), (
+                    f"{cf.name} practice {p.get('id')} expected '{exp}' in output:\n{result.output}"
+                )

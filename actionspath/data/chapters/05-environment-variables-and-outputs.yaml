@@ -143,7 +143,7 @@ command_practice:
     Append a variable key-value pair to a simulated environment file.
 
     This is useful to practice how dynamic values are passed forward by writing `KEY=value` to `"$GITHUB_ENV"` on runners.
-  command_hint: "echo 'ENV_DEMO=active' >> /tmp/test_env"
+  command_hint: "echo 'ENV_DEMO=active' >> /tmp/test_env && cat /tmp/test_env"
   validation:
     type: "command_output"
     command: "echo 'ENV_DEMO=active' >> /tmp/test_env && cat /tmp/test_env"

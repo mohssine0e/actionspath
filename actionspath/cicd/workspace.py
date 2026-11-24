@@ -127,6 +127,29 @@ class WorkspaceManager:
                 encoding="utf-8",
             )
 
+        # Create basic pyproject.toml fixture if not present
+        pyproject_path = workspace_path / "pyproject.toml"
+        if not pyproject_path.exists():
+            pyproject_path.write_text(
+                '[project]\nname = "actionspath-demo"\nversion = "0.1.0"\ndescription = "Practice repository"\n',
+                encoding="utf-8",
+            )
+
+        # Create basic Python package directory fixture if not present
+        pkg_dir = workspace_path / "actionspath"
+        pkg_dir.mkdir(parents=True, exist_ok=True)
+        init_file = pkg_dir / "__init__.py"
+        if not init_file.exists():
+            init_file.write_text('"""Practice package."""\n', encoding="utf-8")
+
+        # Create basic sample workflow if not present
+        sample_wf = workflows_dir / "ci.yml"
+        if not sample_wf.exists():
+            sample_wf.write_text(
+                "name: CI\non: [push, pull_request]\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n",
+                encoding="utf-8",
+            )
+
         # Initialize git if requested and not already initialized
         if init_git and not (workspace_path / ".git").exists():
             self._init_git_repo(workspace_path)

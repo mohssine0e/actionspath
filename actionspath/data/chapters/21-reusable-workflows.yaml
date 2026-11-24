@@ -152,13 +152,11 @@ command_practice:
     Inspect the local repository workflow files.
 
     This is useful to locate callable child workflows, which must reside within `.github/workflows/`.
-  command_hint: "ls -la .github/workflows/ 2>/dev/null || echo \"Standard workflow
-    location: .github/workflows/\""
+  command_hint: "ls -la .github/ 2>/dev/null || echo 'workflows'"
   validation:
     type: "command_output"
-    command: "ls -la .github/workflows/ 2>/dev/null || echo 'Standard workflow location:
-      .github/workflows/'"
-    expected_contains: "workflow"
+    command: "ls -la .github/ 2>/dev/null || echo 'workflows'"
+    expected_contains: "workflows"
   points: 10
 
 scenarios:
